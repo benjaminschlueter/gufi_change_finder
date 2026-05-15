@@ -38,7 +38,16 @@ fn main() {
         .header(format!("{}/scoutwrap.h", SCOUTWRAP_PATH))
         .clang_arg("-Isrc/scoutfs")
         .clang_arg("-I/usr/include/libxml2")
-        .blocklist_item("^FP_.*$") // for some reason, FP_NAN, etc. are defined twice, so block them and use the libc variant
+        .allowlist_type("__u32")
+        .allowlist_type("__u64")
+        .allowlist_type("scoutfs_ioctl_walk_inodes")
+        .allowlist_type("scoutfs_ioctl_walk_inodes_entry")
+        .allowlist_function("wrap_walk_inodes")
+        .allowlist_type("scoutfs_ioctl_ino_path")
+        .allowlist_type("scoutfs_ioctl_ino_path_result")
+        .allowlist_function("wrap_ino_path")
+        .allowlist_type("scoutfs_ioctl_listxattr_hidden")
+        .allowlist_function("wrap_listxattr_hidden")
         .wrap_unsafe_ops(true)
         .generate()
         .expect("Failed to generate bindings for {header_path_str");

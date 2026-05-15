@@ -1,0 +1,11 @@
+/target
+/.state
+/output
+/log
+/run
+/src/scoutfs
+/src/scoutwrap/libscoutwrap.a
+/scripts
+/reindex_work
+/.cargo
+/vendor
