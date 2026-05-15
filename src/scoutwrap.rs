@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use gufi_change_finder::bindings::*;
 
 use std::fs::File;
@@ -15,7 +17,6 @@ pub const STR_BUF_SIZE: usize = 512;
  * @param minor: minor timestamp
  */
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct ScoutwrapWalkInodesEntry {
     pub major: u64,
     pub ino: u64,
@@ -30,7 +31,6 @@ pub struct ScoutwrapWalkInodesEntry {
  * @param index: see ScoutFS ioctl.h for which macro to set this with
  */
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct ScoutwrapWalkInodes {
     pub first: ScoutwrapWalkInodesEntry,
     pub last: ScoutwrapWalkInodesEntry,
@@ -44,7 +44,6 @@ pub struct ScoutwrapWalkInodes {
  * Allocates and populates the entries_vec in user_arg to contain nr_entries entry structs from inodes within the minor:major range. This function allocates the buffer. The caller does not have to worry about setting up a buffer.  
  * Moves the callers struct inside, modifies and returns it. 
  */
-#[allow(dead_code)]
 pub fn scoutwrap_walk_inodes(root_fs: &File, mut user_arg: ScoutwrapWalkInodes) -> Result<ScoutwrapWalkInodes, String> {
 
     // create scoutfs_ioctl_walk_inodes and entries structs
@@ -118,7 +117,6 @@ pub fn scoutwrap_walk_inodes(root_fs: &File, mut user_arg: ScoutwrapWalkInodes) 
 /* Input for INO_PATH ioctl function
  */
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct ScoutwrapInoPath {
     pub ino: u64,
     pub dir_ino: u64,
@@ -130,7 +128,6 @@ pub struct ScoutwrapInoPath {
 /* Result output for INO_PATH ioctl function
  */
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct ScoutwrapInoPathResult {
     pub ino: u64,
     pub dir_pos: u64,
@@ -143,7 +140,6 @@ pub struct ScoutwrapInoPathResult {
  * @param path_arg: struct with input for scoutfs ioctl
  * @return ioctl result struct
  */
-#[allow(dead_code)]
 pub fn scoutwrap_ino_path(root_fs: &File, path_arg: ScoutwrapInoPath) -> Result<ScoutwrapInoPathResult, String> {
    
     let result_ptr;
@@ -186,7 +182,6 @@ pub fn scoutwrap_ino_path(root_fs: &File, path_arg: ScoutwrapInoPath) -> Result<
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct ScoutwrapListxattrHidden {
     pub id_pos: u64,
     pub xattr_list: Vec<String>, // possible to have more than 1 xattr
@@ -199,7 +194,6 @@ pub struct ScoutwrapListxattrHidden {
  * @param xattr_arg
  * @return vector of owned strings with all xattr names
  */
-#[allow(dead_code)]
 pub fn scoutwrap_listxattr_hidden(fd: BorrowedFd, xattr_arg: ScoutwrapListxattrHidden) -> Result<Vec<String>, String> {
     
     unsafe {
