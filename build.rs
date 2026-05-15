@@ -1,6 +1,7 @@
 use std::{path::PathBuf, process::Command};
 
 const SCOUTWRAP_PATH: &'static str = "src/scoutwrap";
+const SCOUTFS_PATH: &'static str = "src/scoutfs";
 
 fn main() {
     println!("cargo::rerun-if-changed={}/scoutwrap.c", SCOUTWRAP_PATH);
@@ -22,22 +23,11 @@ fn main() {
 
     let bindings_path = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("bindings.rs");
 
-    // ScoutFS
-    let scoutfs_path = PathBuf::from("src/scoutfs")
-        .canonicalize()
-        .expect("Cannot canonicalize path");
-
-    eprintln!(
-        "Top level ScoutFS source directory: {}",
-        scoutfs_path.display()
-    );
-
     // ScoutFS is kernel code and does not provide libs; Need a user library wrapper for the ioctl
 
     let bindings = bindgen::Builder::default()
         .header(format!("{}/scoutwrap.h", SCOUTWRAP_PATH))
-        .clang_arg("-Isrc/scoutfs")
-        .clang_arg("-I/usr/include/libxml2")
+        .clang_arg(format!("-I{}", SCOUTFS_PATH))
         .allowlist_type("__u32")
         .allowlist_type("__u64")
         .allowlist_type("scoutfs_ioctl_walk_inodes")
@@ -48,13 +38,12 @@ fn main() {
         .allowlist_function("wrap_ino_path")
         .allowlist_type("scoutfs_ioctl_listxattr_hidden")
         .allowlist_function("wrap_listxattr_hidden")
-        .wrap_unsafe_ops(true)
         .generate()
-        .expect("Failed to generate bindings for {header_path_str");
+        .expect("Failed to generate bindings");
 
     bindings
         .write_to_file(bindings_path)
-        .expect("Failed to write to bindings.tmp");
+        .expect("Failed to write to {bindings_path}");
 
     println!("cargo:rustc-link-search={}", SCOUTWRAP_PATH);
     println!("cargo:rustc-env=LD_LIBRARY_PATH={}", SCOUTWRAP_PATH);
