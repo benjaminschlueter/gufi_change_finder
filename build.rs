@@ -1,0 +1,172 @@
+use std::{fs, io};
+use std::path::PathBuf;
+use std::fs::File;
+use std::io::Write;
+use std::io::ErrorKind;
+use std::process::Command;
+
+fn main() {
+    let mut log_file = File::create("build.log").expect("Failed to create build.log file");
+	
+    let top_path = PathBuf::from(".").canonicalize().expect("failed to canonicalize path");
+
+    // MarFS setup
+    let marfs_path = PathBuf::from("src/marfs").canonicalize().expect("Cannot canonicalize path");
+    
+    log_file.write_all(b"Top level MarFS source directory: ").expect("Failed to write to build.log");
+    log_file.write_all(marfs_path.clone().into_os_string().as_encoded_bytes()).expect("Failed to write to build.log");
+    log_file.write_all(b"\n").expect("Failed to write to build.log");
+
+    // compile C libraries nswrap, scoutwrap; user is responsible for compiling MarFS, ScoutFS on their own
+    let nswrap_clean = Command::new("make")
+                            .arg("-C")
+                            .arg("src/nswrap")
+                            .arg("clean")
+                            .status()
+                            .expect("failed to clean src/nswrap");
+
+    let nswrap_make = Command::new("make")
+                            .arg("-C")
+                            .arg("src/nswrap")
+                            .status()
+                            .expect("failed to make src/nswrap");
+
+    let scoutwrap_clean = Command::new("make")
+                            .arg("-C")
+                            .arg("src/scoutwrap")
+                            .arg("clean")
+                            .status()
+                            .expect("failed to clean src/scoutwrap");
+
+    let scoutwrap_make = Command::new("make")
+                            .arg("-C")
+                            .arg("src/scoutwrap")
+                            .status()
+                            .expect("failed to make src/scoutwrap");
+
+       
+    let bindings_path = "src/bindings.rs";
+    match fs::remove_file(bindings_path) {
+        Ok(_) => { },
+        Err(e) => {
+            if e.kind() == ErrorKind::NotFound {
+                log_file.write_all(b"\nfailed to remove old bindings file: does not exist\n").expect("failed to write to build.log");
+            }
+            else {
+                log_file.write_all(b"\nfailed to remove old bindings file\n").expect("failed to write to build.log");
+            }
+        }
+    };
+
+
+    let auto_config_path = marfs_path.join("src/marfs_auto_config.h");
+    let auto_config_path_str = auto_config_path.to_str().expect("Failed to convert header path to String");
+    
+    let config_path = marfs_path.join("src/config/config.h");
+    let config_path_str = config_path.to_str().expect("Failed to convert header path to String");
+   
+    let tagging_path = marfs_path.join("src/tagging/tagging.h");
+    let tagging_path_str = tagging_path.to_str().expect("Failed to convert header path to String");
+
+    // ScoutFS
+    let scoutfs_path = PathBuf::from("src/scoutfs").canonicalize().expect("Cannot canonicalize path");
+    
+    log_file.write_all(b"Top level ScoutFS source directory: ").expect("Failed to write to build.log");
+    log_file.write_all(scoutfs_path.clone().into_os_string().as_encoded_bytes()).expect("Failed to write to build.log");
+    log_file.write_all(b"\n").expect("Failed to write to build.log");
+
+    // ScoutFS headers
+
+    let scoutwrap_path = top_path.join("src/scoutwrap/scoutwrap.h");
+    let scoutwrap_path_str = scoutwrap_path.to_str().expect("Failed to convert header path to String");
+
+    let nswrap_path = top_path.join("src/nswrap/nswrap.h");
+    let nswrap_path_str = nswrap_path.to_str().expect("Failed to convert header path to String");
+
+    // ScoutFS is kernel code and does not provide libs; Need a user library wrapper for the ioctl
+    
+    let libdir_path = marfs_path.join("src/api/.libs");
+    
+    log_file.write_all(b"Searching for libs in: ").expect("Failed to write to build.log");
+    log_file.write_all(libdir_path.clone().as_os_str().as_encoded_bytes()).expect("Failed to write to build.log");
+    log_file.write_all(b"\n\n").expect("Failed to write to build.log");
+    
+    let bindings = bindgen::Builder::default()
+                    .header(auto_config_path_str)
+                    .header(config_path_str)
+                    .header(tagging_path_str)
+                    .header(scoutwrap_path_str)
+                    .header(nswrap_path_str)
+                    .clang_arg(format!("-I{}/src/marfs/src", top_path.to_str().unwrap()))
+                    .clang_arg(format!("-I{}/src/scoutfs", top_path.to_str().unwrap()))
+                    .clang_arg("-I/usr/include/libxml2")
+                    .blocklist_item("^FP_.*$") // for some reason, FP_NAN, etc. are defined twice, so block them and use the libc variant
+                    .generate()
+                    .expect("Failed to generate bindings for {header_path_str");
+    
+    bindings.write_to_file("src/bindings.tmp").expect("Failed to write to bindings.tmp");
+    let mut tmp_bindings = fs::OpenOptions::new()
+            .read(true)
+            .open("src/bindings.tmp")
+            .unwrap();
+
+    let mut real_bindings = fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(bindings_path)
+            .unwrap();
+
+    let _result = io::copy(&mut tmp_bindings, &mut real_bindings);
+
+    fs::remove_file("src/bindings.tmp").expect("Failed to remove src/bindings.tmp");
+
+    //let log_string = format!("Wrote bindings from {header_path_str} to {bindings_path}\n"); 
+    //log_file.write_all(log_string.as_bytes()).expect("Failed to write to build.log");
+
+    let marfs_lib_path = top_path.join("src/marfs/src/api/.libs");
+    let scoutwrap_lib_path = top_path.join("src/scoutwrap");
+    let nswrap_lib_path = top_path.join("src/nswrap");
+    
+    println!("cargo:rustc-link-arg=-Wl,-rpath,{}", marfs_lib_path.to_str().unwrap());
+    println!("cargo:rustc-link-search={}", marfs_lib_path.to_str().unwrap());
+    println!("cargo:rustc-link-search={}", scoutwrap_lib_path.to_str().unwrap());
+    println!("cargo:rustc-link-search={}", nswrap_lib_path.to_str().unwrap());
+    println!("cargo:rustc-env=LD_LIBRARY_PATH={}:{}:{}", marfs_lib_path.to_str().unwrap(), scoutwrap_lib_path.to_str().unwrap(), nswrap_lib_path.to_str().unwrap());
+    println!("cargo:rustc-link-lib=marfs");
+    println!("cargo:rustc-link-lib=scoutwrap");
+    println!("cargo:rustc-link-lib=nswrap");
+
+}
+
+fn include_header(header_path: &str, bindings_path: &str, log_file: &mut File, top_path: &str) {
+
+
+    let bindings = bindgen::Builder::default()
+                    .header(header_path)
+                    .clang_arg(format!("-I{}/src/marfs/src", top_path))
+                    .clang_arg(format!("-I{}/src/scoutfs", top_path))
+                    .clang_arg("-I/usr/include/libxml2")
+                    .generate()
+                    .expect("Failed to generate bindings for {header_path_str");
+    
+    bindings.write_to_file("src/bindings.tmp").expect("Failed to write to bindings.tmp");
+    let mut tmp_bindings = fs::OpenOptions::new()
+            .read(true)
+            .open("src/bindings.tmp")
+            .unwrap();
+
+    let mut real_bindings = fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(bindings_path)
+            .unwrap();
+
+    let _result = io::copy(&mut tmp_bindings, &mut real_bindings);
+
+    fs::remove_file("src/bindings.tmp").expect("Failed to remove src/bindings.tmp");
+
+    let log_string = format!("Wrote bindings from {header_path} to {bindings_path}\n"); 
+    log_file.write_all(log_string.as_bytes()).expect("Failed to write to build.log");
+
+    
+}

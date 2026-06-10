@@ -1,0 +1,22 @@
+[package]
+name = "gufi_change_finder"
+version = "0.1.0"
+edition = "2024"
+
+[profile.dev]
+debug = 2
+opt-level = 0
+
+[dependencies]
+bindgen = "0.71.1"
+clap = { version = "4.5.40", features = ["derive"] }
+indextree = "4.8.1"
+libc = "0.2.183"
+nix = {version = "0.31.2", features = ["fs"]}
+rustix = "1.1.4"
+users = "0.11.0"
+whoami = "2.1.1"
+xattr = "1.6.1"
+
+[build-dependencies]
+bindgen = "0.71.1"
