@@ -1,24 +1,17 @@
-use gufi_change_finder::*;
+#![allow(non_snake_case)]
 
 mod scoutwrap;
 use scoutwrap::*; 
 
-mod nswrap;
-use nswrap::*;
 
 use std::fs::OpenOptions;
-use std::os::fd::{AsFd};
 use std::path::Path;
 use std::io::ErrorKind;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::time::{Instant, Duration};
 
-use nix::fcntl::OFlag;
-use nix::sys::stat::{Mode};
-use nix::sys::stat::fstat;
 
 use clap::{Parser, ArgAction};
-use std::collections::HashMap;
 use indextree::{Arena, NodeId};
 
 const MAX_CHILD_COUNT: usize = 1024; // if a node has more than this many children, give up adding more and rescan the whole node
@@ -75,14 +68,6 @@ fn main() {
     }
 
     let QUOTA_STATE_FILE = args.quota_state_file_path;
-
-    let fs_root_depth;
-    if FS_ROOT_PATH == "/" {
-        fs_root_depth = 0;
-    }
-    else {
-        fs_root_depth = FS_ROOT_PATH.split('/').collect::<Vec<&str>>().len() - 1;
-    }
 
     let mut starting_major: i64 = 0;
     let mut starting_ino: i64 = 0;
@@ -428,7 +413,6 @@ fn main() {
 
         }
        
-        let children: Vec<NodeId> = tree_root.children(&arena).collect();
         
         let cur_time = start_time.elapsed();
 
@@ -501,8 +485,8 @@ fn main() {
     let mut writer = BufWriter::new(output_file);
 
     for item in &parent_list {
-        // terminate with null byte to protect issuse with weird user paths
-        writeln!(writer, "{}\0,{}", item.name, item.ino);
+        // terminate with null byte to protect issues with weird user paths
+        writeln!(writer, "{}\0,{}", item.name, item.ino).expect("failed to write path to output file");
     }
      
     println!("{:?}", parent_list);
@@ -515,7 +499,7 @@ fn main() {
 fn gen_parent_list(node: NodeId, parent_list: &mut Vec<TreeData>, partial_path: String, arena: &Arena<TreeData>) {
     for child in node.children(arena) {
        
-        let mut partial_path_new = format!("{}/{}", partial_path, arena[child].get().name);
+        let partial_path_new = format!("{}/{}", partial_path, arena[child].get().name);
 
         if arena[child].first_child().is_none() {
             // leaf: add new TreeData with abs path instead of relative and inode

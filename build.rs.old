@@ -10,7 +10,11 @@ fn main() {
 	
     let top_path = PathBuf::from(".").canonicalize().expect("failed to canonicalize top level path");
 
+    // MarFS setup
+    let marfs_path = PathBuf::from("src/marfs").canonicalize().expect("Cannot canonicalize marfs src path");
+    
     log_file.write_all(b"Top level MarFS source directory: ").expect("Failed to write to build.log");
+    log_file.write_all(marfs_path.clone().into_os_string().as_encoded_bytes()).expect("Failed to write to build.log");
     log_file.write_all(b"\n").expect("Failed to write to build.log");
 
     let scoutwrap_clean = Command::new("make")
@@ -41,6 +45,15 @@ fn main() {
     };
 
 
+    let auto_config_path = marfs_path.join("src/marfs_auto_config.h");
+    let auto_config_path_str = auto_config_path.to_str().expect("Failed to convert header path to String");
+    
+    let config_path = marfs_path.join("src/config/config.h");
+    let config_path_str = config_path.to_str().expect("Failed to convert header path to String");
+   
+    let tagging_path = marfs_path.join("src/tagging/tagging.h");
+    let tagging_path_str = tagging_path.to_str().expect("Failed to convert header path to String");
+
     // ScoutFS
     let scoutfs_path = PathBuf::from("src/scoutfs").canonicalize().expect("Cannot canonicalize path");
     
@@ -55,11 +68,18 @@ fn main() {
 
     // ScoutFS is kernel code and does not provide libs; Need a user library wrapper for the ioctl
     
+    let libdir_path = marfs_path.join("src/api/.libs");
+    
     log_file.write_all(b"Searching for libs in: ").expect("Failed to write to build.log");
+    log_file.write_all(libdir_path.clone().as_os_str().as_encoded_bytes()).expect("Failed to write to build.log");
     log_file.write_all(b"\n\n").expect("Failed to write to build.log");
     
     let bindings = bindgen::Builder::default()
+                    .header(auto_config_path_str)
+                    .header(config_path_str)
+                    .header(tagging_path_str)
                     .header(scoutwrap_path_str)
+                    .clang_arg(format!("-I{}/src/marfs/src", top_path.to_str().unwrap()))
                     .clang_arg(format!("-I{}/src/scoutfs", top_path.to_str().unwrap()))
                     .clang_arg("-I/usr/include/libxml2")
                     .blocklist_item("^FP_.*$") // for some reason, FP_NAN, etc. are defined twice, so block them and use the libc variant
@@ -85,10 +105,14 @@ fn main() {
     //let log_string = format!("Wrote bindings from {header_path_str} to {bindings_path}\n"); 
     //log_file.write_all(log_string.as_bytes()).expect("Failed to write to build.log");
 
+    let marfs_lib_path = top_path.join("src/marfs/src/api/.libs");
     let scoutwrap_lib_path = top_path.join("src/scoutwrap");
     
+    println!("cargo:rustc-link-arg=-Wl,-rpath,{}", marfs_lib_path.to_str().unwrap());
+    println!("cargo:rustc-link-search={}", marfs_lib_path.to_str().unwrap());
     println!("cargo:rustc-link-search={}", scoutwrap_lib_path.to_str().unwrap());
-    println!("cargo:rustc-env=LD_LIBRARY_PATH={}", scoutwrap_lib_path.to_str().unwrap());
+    println!("cargo:rustc-env=LD_LIBRARY_PATH={}:{}", marfs_lib_path.to_str().unwrap(), scoutwrap_lib_path.to_str().unwrap());
+    println!("cargo:rustc-link-lib=marfs");
     println!("cargo:rustc-link-lib=scoutwrap");
 
 }
@@ -98,6 +122,7 @@ fn include_header(header_path: &str, bindings_path: &str, log_file: &mut File, t
 
     let bindings = bindgen::Builder::default()
                     .header(header_path)
+                    .clang_arg(format!("-I{}/src/marfs/src", top_path))
                     .clang_arg(format!("-I{}/src/scoutfs", top_path))
                     .clang_arg("-I/usr/include/libxml2")
                     .generate()
