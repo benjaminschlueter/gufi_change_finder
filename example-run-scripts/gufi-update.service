@@ -2,7 +2,7 @@
 Description=Gufi reindex list
 
 [Service]
-ExecStart=/home/bschlueter/parent_finder/target/debug/parent_finder --root-scoutfs /marfs/mdal-root --quota-state-file-path /home/bschlueter/quota_update/.state --output-file-dir /home/bschlueter/parent_finder/output --state-file-path /home/bschlueter/parent_finder/.state -s
+ExecStart=/home/bschlueter/gufi_change_finder/target/debug/gufi_change_finder --root-scoutfs /marfs/mdal-root --quota-state-file-path /home/bschlueter/quota_update/.state --output-file-dir /home/bschlueter/gufi_change_finder/output --state-file-path /home/bschlueter/gufi_change_finder/.state -s && sleep 1 && python3 /home/bschlueter/gufi_change_finder/reindexer.py -i /index
 LimitNOFILE=65536
 Restart=on-failure
 RestartSec=5
