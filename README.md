@@ -1,22 +1,24 @@
-# quota_update
+# gufi_change_finder
 
-A tool for updating MarFS namespace quotas using ScoutFS xattr capabilities.
+A tool to allow for only reindexing changed subdirectories of a GUFI tree instead of the entire tree, using ScoutFS changelogs.  
 
 ## Building
 
-Cargo must be set up to build. Run: ```cargo build```
+Rust and Cargo must be set up to build. Run: ```cargo build```
 
-The build script assumes MarFS and ScoutFS are already compiled subdirectories of src: ```src/marfs``` and ```src/scoutfs```. These could also be links to existing builds. 
+The build script assumes ScoutFS is an already compiled subdirectory of src: ```src/scoutfs```. It could also be a link to an existing build. 
 
-The user is responsible for manually compiling MarFS and ScoutFS
+The user is responsible for manually compiling ScoutFS: https://github.com/versity/scoutfs.git
 
-The wrappers nswrap and scoutwrap are automatically compiled by the build script
+The wrapper scoutwrap is automatically compiled by the build script
 
 ## Running
 
 Must run as root.
 
 It is highly recommended to create a runscript or systemd service to run this tool due to various path arguments.
+
+A ScoutFS filesystem must be mounted. 
 
 ## Behavior
 
