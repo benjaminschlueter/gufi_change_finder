@@ -1,1 +1,1 @@
-sudo ./target/debug/parent_finder --root-scoutfs /marfs/mdal-root --quota-state-file-path /home/bschlueter/quota_update/.state -s  
+sudo ./target/debug/gufi_change_finder --root-scoutfs /marfs/mdal-root --quota-state-file-path /home/bschlueter/quota_update/.state -s  
