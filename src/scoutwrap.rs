@@ -1,4 +1,4 @@
-use gufi_change_finder::*;
+use gufi_change_finder::bindings::*;
 
 use std::fs::File;
 use std::os::fd::AsRawFd;
