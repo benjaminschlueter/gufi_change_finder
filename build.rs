@@ -1,16 +1,22 @@
 use std::{path::PathBuf, process::Command};
 
+const SCOUTWRAP_PATH: &'static str = "src/scoutwrap";
+
 fn main() {
+    println!("cargo::rerun-if-changed={}/scoutwrap.c", SCOUTWRAP_PATH);
+    println!("cargo::rerun-if-changed={}/scoutwrap.h", SCOUTWRAP_PATH);
+    println!("cargo::rerun-if-changed={}/Makefile", SCOUTWRAP_PATH);
+
     Command::new("make")
         .arg("-C")
-        .arg("src/scoutwrap")
+        .arg(SCOUTWRAP_PATH)
         .arg("clean")
         .status()
         .expect("failed to clean src/scoutwrap");
 
     Command::new("make")
         .arg("-C")
-        .arg("src/scoutwrap")
+        .arg(SCOUTWRAP_PATH)
         .status()
         .expect("failed to make src/scoutwrap");
 
@@ -29,7 +35,7 @@ fn main() {
     // ScoutFS is kernel code and does not provide libs; Need a user library wrapper for the ioctl
 
     let bindings = bindgen::Builder::default()
-        .header("src/scoutwrap/scoutwrap.h")
+        .header(format!("{}/scoutwrap.h", SCOUTWRAP_PATH))
         .clang_arg("-Isrc/scoutfs")
         .clang_arg("-I/usr/include/libxml2")
         .blocklist_item("^FP_.*$") // for some reason, FP_NAN, etc. are defined twice, so block them and use the libc variant
@@ -41,8 +47,7 @@ fn main() {
         .write_to_file(bindings_path)
         .expect("Failed to write to bindings.tmp");
 
-    let scoutwrap_lib_path = "src/scoutwrap";
-    println!("cargo:rustc-link-search={}", scoutwrap_lib_path);
-    println!("cargo:rustc-env=LD_LIBRARY_PATH={}", scoutwrap_lib_path);
+    println!("cargo:rustc-link-search={}", SCOUTWRAP_PATH);
+    println!("cargo:rustc-env=LD_LIBRARY_PATH={}", SCOUTWRAP_PATH);
     println!("cargo:rustc-link-lib=scoutwrap");
 }
