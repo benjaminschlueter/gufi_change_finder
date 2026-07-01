@@ -126,9 +126,9 @@ fn main() {
         }
     }
 
-    let mut quota_major: i64 = 0;
-    let mut quota_ino: i64 = 0;
-    let mut quota_minor: i64 = 0;
+    let quota_major: i64;
+    let quota_ino: i64;
+    let quota_minor: i64;
     
     // read state info from quota to keep tools in sync
 
