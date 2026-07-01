@@ -1,14 +1,6 @@
-use std::path::PathBuf;
-use std::fs::File;
-use std::io::Write;
-use std::process::Command;
+use std::{path::PathBuf, process::Command};
 
 fn main() {
-    let mut log_file = File::create("build.log").expect("Failed to create build.log file");
-	
-    log_file.write_all(b"Top level MarFS source directory: ").expect("Failed to write to build.log");
-    log_file.write_all(b"\n").expect("Failed to write to build.log");
-
     Command::new("make")
         .arg("-C")
         .arg("src/scoutwrap")
@@ -28,14 +20,9 @@ fn main() {
     // ScoutFS
     let scoutfs_path = PathBuf::from("src/scoutfs").canonicalize().expect("Cannot canonicalize path");
     
-    log_file.write_all(b"Top level ScoutFS source directory: ").expect("Failed to write to build.log");
-    log_file.write_all(scoutfs_path.clone().into_os_string().as_encoded_bytes()).expect("Failed to write to build.log");
-    log_file.write_all(b"\n").expect("Failed to write to build.log");
+    eprintln!("Top level ScoutFS source directory: {}", scoutfs_path.display());
 
     // ScoutFS is kernel code and does not provide libs; Need a user library wrapper for the ioctl
-    
-    log_file.write_all(b"Searching for libs in: ").expect("Failed to write to build.log");
-    log_file.write_all(b"\n\n").expect("Failed to write to build.log");
     
     let bindings = bindgen::Builder::default()
                     .header("src/scoutwrap/scoutwrap.h")
@@ -47,9 +34,6 @@ fn main() {
                     .expect("Failed to generate bindings for {header_path_str");
     
     bindings.write_to_file(bindings_path).expect("Failed to write to bindings.tmp");
-
-    //let log_string = format!("Wrote bindings from {header_path_str} to {bindings_path}\n"); 
-    //log_file.write_all(log_string.as_bytes()).expect("Failed to write to build.log");
 
     let scoutwrap_lib_path = "src/scoutwrap";
     println!("cargo:rustc-link-search={}", scoutwrap_lib_path);
