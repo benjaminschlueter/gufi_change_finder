@@ -1,4 +1,4 @@
-use gufi_change_finder::*;
+use gufi_change_finder::bindings::*;
 
 use std::fs::File;
 use std::os::fd::AsRawFd;
@@ -228,7 +228,7 @@ pub fn scoutwrap_listxattr_hidden(fd: BorrowedFd, xattr_arg: ScoutwrapListxattrH
 
                         match std::str::from_utf8(slice) {
                             Ok(s) => Some(s.to_owned()),
-                            Err(e) => Some(String::from("error: failed to parse slice into utf8")),
+                            Err(_) => Some(String::from("error: failed to parse slice into utf8")),
 
                             // CALLER IS RESPONSIBLE FOR CHECKING VECTOR FOR ERROR STRINGS
                         }
