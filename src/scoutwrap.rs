@@ -2,11 +2,11 @@
 
 use gufi_change_finder::bindings::*;
 
-use std::{slice, mem, str};
-use std::fs::File;
 use std::ffi::CStr;
-use std::os::fd::{AsRawFd, BorrowedFd};
+use std::fs::File;
 use std::io::Error;
+use std::os::fd::{AsRawFd, BorrowedFd};
+use std::{mem, slice, str};
 
 pub const STR_BUF_SIZE: usize = 512;
 
@@ -96,8 +96,21 @@ pub fn scoutwrap_walk_inodes(
         );
     }
 
-    let mut entries = Vec::<ScoutwrapWalkInodesEntry>::new();
+    // let mut entries = Vec::<ScoutwrapWalkInodesEntry>::new();
 
+    let entries = entries_c
+        .into_iter()
+        .filter(|entry_c| !(entry_c.major == 0 && entry_c.ino == 0 && entry_c.minor == 0))
+        .map(|entry_c| ScoutwrapWalkInodesEntry {
+            major: entry_c.major,
+            ino: entry_c.ino,
+            minor: entry_c.minor,
+        })
+        .collect();
+
+    println!("{:?}", entries);
+
+    /*
     // add entries to the rust buffer until the end is found
     for entry in &entries_c {
         if entry.major == 0 && entry.ino == 0 && entry.minor == 0 {
@@ -112,6 +125,7 @@ pub fn scoutwrap_walk_inodes(
 
         entries.push(tmp);
     }
+    */
 
     user_arg.entries_vec = entries;
 
