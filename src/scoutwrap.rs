@@ -108,8 +108,6 @@ pub fn scoutwrap_walk_inodes(
         })
         .collect();
 
-    println!("{:?}", entries);
-
     user_arg.entries_vec = entries;
 
     Ok(user_arg)
