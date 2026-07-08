@@ -28,8 +28,6 @@ fn main() {
     let bindings = bindgen::Builder::default()
         .header(format!("{}/scoutwrap.h", SCOUTWRAP_PATH))
         .clang_arg(format!("-I{}", SCOUTFS_PATH))
-        .allowlist_type("__u32")
-        .allowlist_type("__u64")
         .allowlist_type("scoutfs_ioctl_walk_inodes")
         .allowlist_type("scoutfs_ioctl_walk_inodes_entry")
         .allowlist_function("wrap_walk_inodes")

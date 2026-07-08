@@ -49,16 +49,16 @@ pub fn scoutwrap_walk_inodes(root_fs: &File, mut user_arg: ScoutwrapWalkInodes) 
     // create scoutfs_ioctl_walk_inodes and entries structs
 
     let first_c = scoutfs_ioctl_walk_inodes_entry {
-        major: user_arg.first.major as __u64,
-        ino: user_arg.first.ino as __u64,
-        minor: user_arg.first.minor as __u32,
+        major: user_arg.first.major as u64,
+        ino: user_arg.first.ino as u64,
+        minor: user_arg.first.minor as u32,
         _pad: [0u8; 4usize],
     };
     
     let last_c = scoutfs_ioctl_walk_inodes_entry {
-        major: user_arg.last.major as __u64,
-        ino: user_arg.last.ino as __u64,
-        minor: user_arg.last.minor as __u32,
+        major: user_arg.last.major as u64,
+        ino: user_arg.last.ino as u64,
+        minor: user_arg.last.minor as u32,
         _pad: [0u8; 4usize],
     };
     
