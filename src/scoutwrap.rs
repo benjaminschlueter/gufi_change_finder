@@ -110,23 +110,6 @@ pub fn scoutwrap_walk_inodes(
 
     println!("{:?}", entries);
 
-    /*
-    // add entries to the rust buffer until the end is found
-    for entry in &entries_c {
-        if entry.major == 0 && entry.ino == 0 && entry.minor == 0 {
-            break;
-        }
-
-        let tmp = ScoutwrapWalkInodesEntry {
-            major: entry.major as u64,
-            ino: entry.ino as u64,
-            minor: entry.minor as u32,
-        };
-
-        entries.push(tmp);
-    }
-    */
-
     user_arg.entries_vec = entries;
 
     Ok(user_arg)
