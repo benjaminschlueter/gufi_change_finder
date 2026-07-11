@@ -9,6 +9,7 @@ use std::os::fd::{AsRawFd, BorrowedFd};
 use std::{mem, slice, str};
 
 pub const STR_BUF_SIZE: usize = 512;
+pub const MAX_HARDLINKS: usize = 8;
 
 /* Represents a point in the ScoutFS changelog.
  * @param major: major timestamp
@@ -82,6 +83,7 @@ pub fn scoutwrap_walk_inodes(
         _pad: [0u8; 11usize],
     };
 
+    // call ioctl and take ownership of returned buffer
     let entries_c;
     unsafe {
         if wrap_walk_inodes(root_fs.as_raw_fd(), &mut user) == -1 {
@@ -96,8 +98,7 @@ pub fn scoutwrap_walk_inodes(
         );
     }
 
-    // let mut entries = Vec::<ScoutwrapWalkInodesEntry>::new();
-
+    // convert to unpadded rust struct and drop empties 
     let entries = entries_c
         .into_iter()
         .filter(|entry_c| !(entry_c.major == 0 && entry_c.ino == 0 && entry_c.minor == 0))
@@ -143,9 +144,12 @@ pub fn scoutwrap_ino_path(
     root_fs: &File,
     path_arg: ScoutwrapInoPath,
 ) -> Result<ScoutwrapInoPathResult, String> {
+    
+    // ioctl function buffer
     let result_ptr;
     unsafe {
-        result_ptr = libc::calloc(1, STR_BUF_SIZE);
+        // make this buffer extra big in case of many log paths 
+        result_ptr = libc::calloc(1, STR_BUF_SIZE * 16);
     }
 
     let mut path_c = scoutfs_ioctl_ino_path {
@@ -157,6 +161,8 @@ pub fn scoutwrap_ino_path(
         _pad: [0u8; 6usize],
     };
 
+    // extra paths returned by looped calls and dir_* updates 
+
     unsafe {
         if wrap_ino_path(root_fs.as_raw_fd(), &mut path_c) == -1 {
             return Err(Error::last_os_error().to_string());
@@ -165,13 +171,10 @@ pub fn scoutwrap_ino_path(
 
     let ret_str;
     unsafe {
-        // ensure we only get the first string if buffer contains multiple
-        let entries_c = Vec::from_raw_parts(
-            path_c.result_ptr as *mut scoutfs_ioctl_ino_path_result,
-            1,
-            1,
-        );
-        let path_ptr = entries_c[0].path.as_ptr() as *const i8;
+        
+        let entry_c = path_c.result_ptr as *mut scoutfs_ioctl_ino_path_result;
+
+        let path_ptr = (*entry_c).path.as_ptr() as *const i8;
 
         ret_str = CStr::from_ptr(path_ptr).to_str().unwrap().to_owned();
     }
