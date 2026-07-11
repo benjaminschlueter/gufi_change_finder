@@ -98,7 +98,7 @@ pub fn scoutwrap_walk_inodes(
         );
     }
 
-    // convert to unpadded rust struct and drop empties 
+    // convert to unpadded rust struct and drop empties
     let entries = entries_c
         .into_iter()
         .filter(|entry_c| !(entry_c.major == 0 && entry_c.ino == 0 && entry_c.minor == 0))
@@ -130,6 +130,7 @@ pub struct ScoutwrapInoPath {
 #[derive(Debug, Clone)]
 pub struct ScoutwrapInoPathResult {
     pub ino: u64,
+    pub dir_ino: u64,
     pub dir_pos: u64,
     pub path_bytes: u16,
     pub path: String,
@@ -144,11 +145,10 @@ pub fn scoutwrap_ino_path(
     root_fs: &File,
     path_arg: ScoutwrapInoPath,
 ) -> Result<ScoutwrapInoPathResult, String> {
-    
     // ioctl function buffer
     let result_ptr;
     unsafe {
-        // make this buffer extra big in case of many log paths 
+        // make this buffer extra big in case of many log paths
         result_ptr = libc::calloc(1, STR_BUF_SIZE * 16);
     }
 
@@ -161,7 +161,7 @@ pub fn scoutwrap_ino_path(
         _pad: [0u8; 6usize],
     };
 
-    // extra paths returned by looped calls and dir_* updates 
+    // extra paths returned by looped calls and dir_* updates
 
     unsafe {
         if wrap_ino_path(root_fs.as_raw_fd(), &mut path_c) == -1 {
@@ -169,24 +169,26 @@ pub fn scoutwrap_ino_path(
         }
     }
 
+    // get string from return buffer
+    let entry_c;
     let ret_str;
     unsafe {
-        
-        let entry_c = path_c.result_ptr as *mut scoutfs_ioctl_ino_path_result;
+        entry_c = path_c.result_ptr as *mut scoutfs_ioctl_ino_path_result;
 
         let path_ptr = (*entry_c).path.as_ptr() as *const i8;
 
         ret_str = CStr::from_ptr(path_ptr).to_str().unwrap().to_owned();
+
+        let ret_struct = ScoutwrapInoPathResult {
+            ino: path_arg.ino,
+            dir_ino: (*entry_c).dir_ino,
+            dir_pos: (*entry_c).dir_pos,
+            path_bytes: path_arg.result_bytes as u16,
+            path: ret_str,
+        };
+
+        return Ok(ret_struct);
     }
-
-    let ret_struct = ScoutwrapInoPathResult {
-        ino: path_arg.ino,
-        dir_pos: path_arg.dir_pos,
-        path_bytes: path_arg.result_bytes as u16,
-        path: ret_str,
-    };
-
-    return Ok(ret_struct);
 }
 
 #[derive(Debug, Clone)]
