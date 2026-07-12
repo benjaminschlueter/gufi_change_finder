@@ -228,13 +228,16 @@ pub fn scoutwrap_listxattr_hidden(
             existing_xattrs.buf_ptr as *const u8,
             existing_xattrs.buf_bytes as usize,
         );
-        
     }
 
     let xattr_str_vec = xattr_str_vec
         .split(|b| *b == 0) // create an iterator over null terminated string subslices
-        .filter(|xattr_str| ! xattr_str.is_empty())
-        .map(|xattr_str| str::from_utf8(xattr_str).expect("from_utf8: failed to parse slice into utf8").to_owned())
+        .filter(|xattr_str| !xattr_str.is_empty())
+        .map(|xattr_str| {
+            str::from_utf8(xattr_str)
+                .expect("from_utf8: failed to parse slice into utf8")
+                .to_owned()
+        })
         .collect();
 
     return Ok(xattr_str_vec);

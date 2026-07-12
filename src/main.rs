@@ -9,7 +9,7 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use clap::{ArgAction, Parser};
+use clap::Parser;
 use indextree::{Arena, NodeId};
 
 const MAX_CHILD_COUNT: usize = 1024; // if a node has more than this many children, give up adding more and rescan the whole node
@@ -28,48 +28,19 @@ fn main() {
 
     let args = Args::parse();
 
-    let CHECKPOINT_MS: u64; // WARNING: will fail to update state file if this is too small (< 100)
-    match args.checkpoint_ms {
-        Some(m) => CHECKPOINT_MS = m,
-        None => CHECKPOINT_MS = 60000,
-    }
-
-    let BATCH_SIZE: usize;
-    match args.batch_size {
-        Some(b) => BATCH_SIZE = b,
-        None => BATCH_SIZE = 65536,
-    }
-
-    let STATE_FILE: String;
-    let STATE_SWAP_FILE: String;
-    match args.state_file_path {
-        Some(p) => {
-            STATE_FILE = p;
-            STATE_SWAP_FILE = format!("{STATE_FILE}.swp");
-        }
-        None => {
-            STATE_FILE = String::from(".state");
-            STATE_SWAP_FILE = String::from(".state.swp");
-        }
-    }
-
-    let STATE_VERBOSE = args.state_verbose.unwrap();
-    let LOOP_VERBOSE = args.loop_verbose.unwrap();
-
+    let CHECKPOINT_MS = args.checkpoint_ms;
+    let BATCH_SIZE = args.batch_size;
+    let STATE_FILE = args.state_file_path;
+    let STATE_SWAP_FILE = format!("{STATE_FILE}.swp");
+    let STATE_VERBOSE = args.state_verbose;
+    let LOOP_VERBOSE = args.loop_verbose;
     let FS_ROOT_PATH = args.root_scoutfs;
-
-    let OUTPUT_DIR: String;
-    match args.output_file_dir {
-        Some(p) => OUTPUT_DIR = p,
-        None => OUTPUT_DIR = String::from("./output"),
-    }
-
+    let OUTPUT_DIR = args.output_file_dir;
     let QUOTA_STATE_FILE = args.quota_state_file_path;
 
     let mut starting_major: i64 = 0;
     let mut starting_ino: i64 = 0;
     let mut starting_minor: i64 = 0;
-    // let mut prev_root_mtime: i64 = 0; // 0 if first run, scanning all anyways
 
     // read state from state file
     let state_file_res = OpenOptions::new().read(true).open(&STATE_FILE);
@@ -582,33 +553,33 @@ fn gen_parent_list(
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Frequency of checkpoints to the state file [default: 60000]
-    #[arg(short = 'm', long)]
-    checkpoint_ms: Option<u64>,
+    /// Frequency of checkpoints to the state file
+    #[arg(short = 'm', long, default_value_t = 60000)]
+    checkpoint_ms: u64,
 
-    /// Number of inodes to process in a single batch [default: 65536]
-    #[arg(short, long)]
-    batch_size: Option<usize>,
+    /// Number of inodes to process in a single batch
+    #[arg(short, long, default_value_t = 65536)]
+    batch_size: usize,
 
     /// Print info on start/final state and state file existence [default: true]
-    #[arg(short, long, action = ArgAction::SetTrue)]
-    state_verbose: Option<bool>,
+    #[arg(short, long)]
+    state_verbose: bool,
 
     /// Print details for each processing step for each file. For debugging purposes (lots of output) [default: false]
-    #[arg(short, long, action = ArgAction::SetTrue)]
-    loop_verbose: Option<bool>,
+    #[arg(short, long)]
+    loop_verbose: bool,
 
-    /// State file path (and state swap file) [default: ".state"]
-    #[arg(short = 'p', long)]
-    state_file_path: Option<String>,
+    /// State file path (and state swap file)
+    #[arg(short = 'p', long, default_value_t = String::from(".state"))]
+    state_file_path: String,
 
     /// Root of ScoutFS filesystem
     #[arg(short, long)]
     root_scoutfs: String,
 
-    /// Parent directory of output files [default: "./output"]
-    #[arg(short, long)]
-    output_file_dir: Option<String>,
+    /// Parent directory of output files
+    #[arg(short, long, default_value_t = String::from("./output"))]
+    output_file_dir: String,
 
     /// Quota state file path
     #[arg(short, long)]
