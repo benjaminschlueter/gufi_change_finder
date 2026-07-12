@@ -148,8 +148,7 @@ pub fn scoutwrap_ino_path(
     // ioctl function buffer
     let result_ptr;
     unsafe {
-        // make this buffer extra big in case of many log paths
-        result_ptr = libc::calloc(1, STR_BUF_SIZE * 16);
+        result_ptr = libc::calloc(1, STR_BUF_SIZE);
     }
 
     let mut path_c = scoutfs_ioctl_ino_path {
@@ -170,14 +169,12 @@ pub fn scoutwrap_ino_path(
     }
 
     // get string from return buffer
-    let entry_c;
-    let ret_str;
     unsafe {
-        entry_c = path_c.result_ptr as *mut scoutfs_ioctl_ino_path_result;
+        let entry_c = path_c.result_ptr as *mut scoutfs_ioctl_ino_path_result;
 
         let path_ptr = (*entry_c).path.as_ptr() as *const i8;
 
-        ret_str = CStr::from_ptr(path_ptr).to_str().unwrap().to_owned();
+        let ret_str = CStr::from_ptr(path_ptr).to_str().unwrap().to_owned();
 
         let ret_struct = ScoutwrapInoPathResult {
             ino: path_arg.ino,
@@ -208,40 +205,37 @@ pub fn scoutwrap_listxattr_hidden(
     fd: BorrowedFd,
     xattr_arg: ScoutwrapListxattrHidden,
 ) -> Result<Vec<String>, String> {
+    let buf;
     unsafe {
-        let buf = libc::calloc(1, STR_BUF_SIZE);
+        buf = libc::calloc(1, STR_BUF_SIZE);
+    }
 
-        let mut existing_xattrs = scoutfs_ioctl_listxattr_hidden {
-            id_pos: xattr_arg.id_pos,
-            buf_ptr: buf as u64,
-            buf_bytes: STR_BUF_SIZE as u32,
-            hash_pos: xattr_arg.hash_pos,
-        };
+    let mut existing_xattrs = scoutfs_ioctl_listxattr_hidden {
+        id_pos: xattr_arg.id_pos,
+        buf_ptr: buf as u64,
+        buf_bytes: STR_BUF_SIZE as u32,
+        hash_pos: xattr_arg.hash_pos,
+    };
 
+    let xattr_str_vec;
+    unsafe {
         if wrap_listxattr_hidden(fd.as_raw_fd(), &mut existing_xattrs) == -1 {
             return Err(Error::last_os_error().to_string());
         }
 
         // create vector of strings to return
-        let buf = slice::from_raw_parts(
+        xattr_str_vec = slice::from_raw_parts(
             existing_xattrs.buf_ptr as *const u8,
             existing_xattrs.buf_bytes as usize,
         );
-        let xattr_str_vec = buf
-            .split(|b| *b == 0) // create an iterator over null terminated string subslices
-            .filter_map(|slice| {
-                if slice.is_empty() {
-                    return None;
-                }
-
-                match str::from_utf8(slice) {
-                    Ok(s) => Some(s.to_owned()),
-                    Err(_) => Some(String::from("error: failed to parse slice into utf8")),
-                    // CALLER IS RESPONSIBLE FOR CHECKING VECTOR FOR ERROR STRINGS
-                }
-            })
-            .collect();
-
-        return Ok(xattr_str_vec);
+        
     }
+
+    let xattr_str_vec = xattr_str_vec
+        .split(|b| *b == 0) // create an iterator over null terminated string subslices
+        .filter(|xattr_str| ! xattr_str.is_empty())
+        .map(|xattr_str| str::from_utf8(xattr_str).expect("from_utf8: failed to parse slice into utf8").to_owned())
+        .collect();
+
+    return Ok(xattr_str_vec);
 }
