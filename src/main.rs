@@ -46,7 +46,6 @@ fn main() {
     let state_file_res = OpenOptions::new().read(true).open(&STATE_FILE);
 
     // if state file does not exist, create it and start from 0. On all other errors, panic.
-
     match state_file_res {
         Ok(f) => {
             let mut reader = BufReader::new(&f);
@@ -73,9 +72,6 @@ fn main() {
                 .trim()
                 .parse()
                 .expect("state file does not contain valid integer");
-            // prev_root_mtime = input_vec[3].trim().parse().expect("state file does not contain valid integer");
-
-            drop(f); // needs to close before rename at end of execution
         }
         Err(e) => {
             if e.kind() == ErrorKind::NotFound {
@@ -93,11 +89,11 @@ fn main() {
 
     if let Ok(_f) = state_file_new_res {
         if STATE_VERBOSE {
-            println!("Detected state tmp file... removing")
+            println!("Detected state swp file... removing")
         }
 
         if let Err(e) = std::fs::remove_file(Path::new(&STATE_SWAP_FILE)) {
-            panic!("failed to remove tmp state file: {e}");
+            panic!("failed to remove swp state file: {e}");
         }
     }
 
@@ -135,8 +131,6 @@ fn main() {
                 .trim()
                 .parse()
                 .expect("quota state file does not contain valid integer");
-
-            drop(f); // needs to close before rename at end of execution
         }
         Err(e) => {
             // fatal if no quota state available
@@ -158,7 +152,7 @@ fn main() {
         );
     }
 
-    let fs_root = fs_root.unwrap();
+    let fs_root = fs_root.expect("error unwrapping fs_root");
 
     // setup walk_inodes struct
 
@@ -174,7 +168,7 @@ fn main() {
         minor: std::u32::MAX,
     };
 
-    let mut user = ScoutwrapWalkInodes {
+    let mut walk_inodes_arg = ScoutwrapWalkInodes {
         first: first,
         last: last,
         entries_vec: Vec::new(),
@@ -203,14 +197,13 @@ fn main() {
 
     let start_time = Instant::now();
     let mut last_checkpoint = Duration::from_millis(0);
-    // let root_mtime = metadata.expect("failed to get metadata from filesystem root").modified().expect("failed to get mtime from metadata");
 
     // process batches until entries vector is empty
     loop {
-        let user_res = scoutwrap_walk_inodes(&fs_root, user.clone());
+        let walk_inodes_arg_res = scoutwrap_walk_inodes(&fs_root, walk_inodes_arg.clone());
 
-        match user_res {
-            Ok(u) => user = u,
+        match walk_inodes_arg_res {
+            Ok(u) => walk_inodes_arg = u,
             Err(e) => {
                 panic!("scoutwrap_walk_inodes: {}", e);
             }
@@ -219,17 +212,17 @@ fn main() {
         // batch vector will never be empty: last element always part of next for full batches and non-full batches will be the last batch
 
         let mut last_batch = false;
-        if user.entries_vec.len() < BATCH_SIZE {
+        if walk_inodes_arg.entries_vec.len() < BATCH_SIZE {
             last_batch = true;
         }
 
         // process all but last element: last will be starting point of next run
-        for entry in &user.entries_vec {
+        for entry in &walk_inodes_arg.entries_vec {
             // don't process the last entry of batches that are not the last. The last entry of the final batch will be processed.
-            if !last_batch && entry.ino == user.entries_vec.last().unwrap().ino {
-                user.first.major = user.entries_vec.last().unwrap().major;
-                user.first.ino = user.entries_vec.last().unwrap().ino;
-                user.first.minor = user.entries_vec.last().unwrap().minor;
+            if !last_batch && entry.ino == walk_inodes_arg.entries_vec.last().unwrap().ino {
+                walk_inodes_arg.first.major = walk_inodes_arg.entries_vec.last().unwrap().major;
+                walk_inodes_arg.first.ino = walk_inodes_arg.entries_vec.last().unwrap().ino;
+                walk_inodes_arg.first.minor = walk_inodes_arg.entries_vec.last().unwrap().minor;
                 break;
             }
 
@@ -245,10 +238,7 @@ fn main() {
                 continue;
             }
 
-            // stop before we get ahead of quota_update
-
-            // println!("major: {major}\tquota_major: {quota_major}");
-
+            // stop if we are going to get ahead of quota_update
             if major >= quota_major as u64 && minor >= quota_minor as u32 {
                 if STATE_VERBOSE || LOOP_VERBOSE {
                     println!("INFO\treached quota state: stopping here");
@@ -259,7 +249,7 @@ fn main() {
                 break;
             }
 
-            let mut path_struct = ScoutwrapInoPath {
+            let mut ino_path_arg = ScoutwrapInoPath {
                 ino: ino,
                 dir_ino: 0,
                 dir_pos: 0,
@@ -271,20 +261,20 @@ fn main() {
 
             let mut ino_path_vec = Vec::new();
             loop {
-                let path_res = scoutwrap_ino_path(&fs_root, path_struct.clone());
+                let path_res = scoutwrap_ino_path(&fs_root, ino_path_arg.clone());
 
                 match path_res {
                     Ok(p) => {
                         ino_path_vec.push(p.path);
 
                         // based on ioctl usage from scoutfs/utils/src/ino_path.c:64
-                        path_struct.dir_ino = p.dir_ino;
-                        path_struct.dir_pos = p.dir_pos;
+                        ino_path_arg.dir_ino = p.dir_ino;
+                        ino_path_arg.dir_pos = p.dir_pos;
 
-                        path_struct.dir_pos += 1;
-                        if path_struct.dir_pos == 0 {
-                            path_struct.dir_ino += 1;
-                            if path_struct.dir_ino == 0 {
+                        ino_path_arg.dir_pos += 1;
+                        if ino_path_arg.dir_pos == 0 {
+                            ino_path_arg.dir_ino += 1;
+                            if ino_path_arg.dir_ino == 0 {
                                 break;
                             }
                         }
@@ -292,7 +282,7 @@ fn main() {
                     Err(e) => {
                         if std::io::Error::last_os_error().kind() == ErrorKind::NotFound {
                             // handle a case where a deleted files inode will still show up in the changelog
-                            // println!("WARNING: INO_PATH returned ENOENT. Skipping this entry.");
+                            // this case now happens every inode on the final loop iteration
                             break;
                         } else {
                             panic!("scoutwrap_ino_path: {} on inode {}", e, ino);
@@ -301,11 +291,13 @@ fn main() {
                 }
             }
 
+            // handle all paths to inode from hard links 
             for path in ino_path_vec {
                 if LOOP_VERBOSE {
                     println!("INFO\tinode: {}\tpath: {}", ino, path);
                 }
-
+                
+                // if root has been scanned, update state values and move on to minimize work
                 if root_scanned {
                     final_major = major;
                     final_ino = ino;
@@ -315,8 +307,8 @@ fn main() {
                 }
 
                 // handle root directory separately because it has empty path
-                // - execution continues after to maintain good state
-                if ino == 1 && path.is_empty() {
+                // - execution continues after to advance to final state
+                if ino == 1 {
                     if LOOP_VERBOSE {
                         println!("INFO\tfilesystem root detected: trimming all nodes below");
                     }
@@ -425,7 +417,7 @@ fn main() {
                 final_major = major;
                 final_ino = ino;
                 final_minor = minor;
-            }
+            } // end ino_path_vec loop
         }
 
         let cur_time = start_time.elapsed();
@@ -442,7 +434,7 @@ fn main() {
                     .write(true)
                     .create(true)
                     .open(&STATE_SWAP_FILE)
-                    .expect("failed to open temporary state file");
+                    .expect("failed to open state swp file");
 
                 let write_str = format!(
                     "{}\n{}\n{}",
@@ -456,7 +448,7 @@ fn main() {
                 }
 
                 if let Err(e) = std::fs::rename(&STATE_SWAP_FILE, &STATE_FILE) {
-                    panic!("failed to rename tmp state file: {}", e.to_string())
+                    panic!("failed to rename state swp file: {}", e.to_string())
                 }
             }
 
@@ -483,7 +475,7 @@ fn main() {
 
         return;
     }
-
+    
     if root_scanned {
         parent_list.push(TreeData {
             name: FS_ROOT_PATH.clone(),
