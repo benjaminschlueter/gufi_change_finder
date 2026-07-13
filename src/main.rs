@@ -87,7 +87,7 @@ fn main() {
     // check for existing STATE_SWAP_FILE
     let state_file_new_res = OpenOptions::new().read(true).open(&STATE_SWAP_FILE);
 
-    if let Ok(_f) = state_file_new_res {
+    if let Ok(_) = state_file_new_res {
         if STATE_VERBOSE {
             println!("Detected state swp file... removing")
         }
@@ -230,11 +230,17 @@ fn main() {
             let ino = entry.ino;
             let minor = entry.minor;
 
+            println!("INFO\tmajor: {major}\tinode: {ino}\tminor: {minor}");
+
             // skip entry if it matches the starting values: it was processed in the last execution
             if major == starting_major as u64
                 && ino == starting_ino as u64
                 && minor == starting_minor as u32
             {
+                if LOOP_VERBOSE {
+                    println!("skipping starting value");
+                }
+
                 continue;
             }
 
@@ -283,6 +289,7 @@ fn main() {
                         if std::io::Error::last_os_error().kind() == ErrorKind::NotFound {
                             // handle a case where a deleted files inode will still show up in the changelog
                             // this case now happens every inode on the final loop iteration
+                            println!("INFO\tino_path returned not found: skipping this entry");
                             break;
                         } else {
                             panic!("scoutwrap_ino_path: {} on inode {}", e, ino);
@@ -290,44 +297,44 @@ fn main() {
                     }
                 }
             }
+                
+            // handle root directory separately because it has empty path
+            // - execution continues after to advance to final state
+            if ino == 1 {
+                if LOOP_VERBOSE {
+                    println!("INFO\tfilesystem root detected: trimming all nodes below");
+                }
+
+                let children: Vec<NodeId> = tree_root.children(&arena).collect();
+
+                for c in children {
+                    c.remove_subtree(&mut arena);
+                }
+
+                root_scanned = true;
+
+                final_major = major;
+                final_ino = ino;
+                final_minor = minor;
+
+                continue;
+            }
+
+            // if root has been scanned, update state values and move on to minimize work
+            if root_scanned {
+                final_major = major;
+                final_ino = ino;
+                final_minor = minor;
+
+                continue;
+            }
 
             // handle all paths to inode from hard links 
             for path in ino_path_vec {
                 if LOOP_VERBOSE {
-                    println!("INFO\tinode: {}\tpath: {}", ino, path);
+                    println!("INFO\tprocessing\tinode: {}\tpath: {}", ino, path);
                 }
                 
-                // if root has been scanned, update state values and move on to minimize work
-                if root_scanned {
-                    final_major = major;
-                    final_ino = ino;
-                    final_minor = minor;
-
-                    continue;
-                }
-
-                // handle root directory separately because it has empty path
-                // - execution continues after to advance to final state
-                if ino == 1 {
-                    if LOOP_VERBOSE {
-                        println!("INFO\tfilesystem root detected: trimming all nodes below");
-                    }
-
-                    let children: Vec<NodeId> = tree_root.children(&arena).collect();
-
-                    for c in children {
-                        c.remove_subtree(&mut arena);
-                    }
-
-                    root_scanned = true;
-
-                    final_major = major;
-                    final_ino = ino;
-                    final_minor = minor;
-
-                    continue;
-                }
-
                 let mut path_vec: Vec<&str> = path.split('/').collect();
                 path_vec.insert(0, &FS_ROOT_PATH); // path_vec must be length 2 or greater
 
