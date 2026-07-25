@@ -289,7 +289,6 @@ fn main() {
                         if std::io::Error::last_os_error().kind() == ErrorKind::NotFound {
                             // handle a case where a deleted files inode will still show up in the changelog
                             // this case now happens every inode on the final loop iteration
-                            println!("INFO\tino_path returned not found: skipping this entry");
                             break;
                         } else {
                             panic!("scoutwrap_ino_path: {} on inode {}", e, ino);
@@ -375,7 +374,7 @@ fn main() {
                         cur_node.append(child, &mut arena);
 
                         if LOOP_VERBOSE {
-                            println!("INFO\tadding new node for {path}");
+                            println!("INFO\tadding new node for {entry}");
                         }
 
                         // check if cur_node has too many children
