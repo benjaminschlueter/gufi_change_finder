@@ -3,6 +3,9 @@
 mod scoutwrap;
 use scoutwrap::*;
 
+mod highest_change_tree;
+use highest_change_tree::*;
+
 use std::fs::OpenOptions;
 use std::io::ErrorKind;
 use std::io::{BufReader, BufWriter, Read, Write};
@@ -12,19 +15,13 @@ use std::time::{Duration, Instant};
 use clap::Parser;
 use indextree::{Arena, NodeId};
 
-const MAX_CHILD_COUNT: usize = 1024; // if a node has more than this many children, give up adding more and rescan the whole node
-
-#[derive(Debug)]
-struct TreeData {
-    name: String,
-    ino: u64,
-}
-
 fn main() {
     // abort if not root
     if users::get_current_uid() != 0 {
         panic!("Must run as root!");
     }
+
+    test_function();
 
     let args = Args::parse();
 
@@ -181,7 +178,7 @@ fn main() {
     let mut final_minor = 0;
 
     // create HashMap and tree
-    let mut arena = Arena::new();
+    let mut arena = highest_change_tree_create();
     let tree_root = arena.new_node(TreeData {
         name: FS_ROOT_PATH.clone(),
         ino: 1,
@@ -229,8 +226,6 @@ fn main() {
             let major = entry.major;
             let ino = entry.ino;
             let minor = entry.minor;
-
-            println!("INFO\tmajor: {major}\tinode: {ino}\tminor: {minor}");
 
             // skip entry if it matches the starting values: it was processed in the last execution
             if major == starting_major as u64
@@ -334,89 +329,7 @@ fn main() {
                     println!("INFO\tprocessing\tinode: {}\tpath: {}", ino, path);
                 }
                 
-                let mut path_vec: Vec<&str> = path.split('/').collect();
-                path_vec.insert(0, &FS_ROOT_PATH); // path_vec must be length 2 or greater
-
-                let mut cur_node = tree_root;
-                let mut child;
-                let path_vec_last = path_vec[path_vec.len() - 1];
-
-                for entry in &path_vec[1..] {
-                    // skip tree_root path_vec entry
-
-                    // check if cur_node has child named entry
-                    if let Some(c) = cur_node
-                        .children(&arena)
-                        .find(|&child| *arena[child].get().name == *entry.to_owned())
-                    {
-                        // if leaf, break because this is already being rescanned
-                        if c.children(&arena).count() == 0 {
-                            break;
-                        }
-
-                        child = c;
-                    }
-                    // node not found: add it
-                    else {
-                        // if adding a leaf, set the inode in TreeData
-                        if *entry == path_vec_last {
-                            child = arena.new_node(TreeData {
-                                name: entry.to_string(),
-                                ino: ino,
-                            });
-                        } else {
-                            child = arena.new_node(TreeData {
-                                name: entry.to_string(),
-                                ino: 0,
-                            });
-                        }
-
-                        cur_node.append(child, &mut arena);
-
-                        if LOOP_VERBOSE {
-                            println!("INFO\tadding new node for {entry}");
-                        }
-
-                        // check if cur_node has too many children
-                        let child_count = cur_node.children(&arena).count();
-
-                        if child_count > MAX_CHILD_COUNT {
-                            // trim if node has too many children and just rescan that node
-
-                            if LOOP_VERBOSE {
-                                println!("INFO\tparent of {path} has exceeded the maximum child count: trimming children and parent will be returned for rescan");
-                            }
-
-                            // remove all children and grand children of cur_node
-
-                            let children: Vec<NodeId> = cur_node.children(&arena).collect();
-
-                            for c in children {
-                                c.remove_subtree(&mut arena);
-                            }
-
-                            // cur_node becomes a leaf and no more children will be added
-
-                            break;
-                        }
-                    }
-
-                    // if child is at bottom, trim below if node has children
-                    if *entry == path_vec_last && child.children(&arena).count() > 0 {
-                        if LOOP_VERBOSE {
-                            println!("INFO\ttrimming below {path}\tentry: {entry}");
-                        }
-
-                        let children: Vec<NodeId> = child.children(&arena).collect();
-
-                        for c in children {
-                            c.remove_subtree(&mut arena);
-                        }
-                    }
-
-                    // update cur_node for next iteration
-                    cur_node = child;
-                }
+                highest_change_tree_add_path(&mut arena, tree_root, path, ino);  
 
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
 
