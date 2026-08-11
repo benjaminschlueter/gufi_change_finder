@@ -13,15 +13,12 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use clap::Parser;
-use indextree::{Arena, NodeId};
 
 fn main() {
     // abort if not root
     if users::get_current_uid() != 0 {
         panic!("Must run as root!");
     }
-
-    test_function();
 
     let args = Args::parse();
 
@@ -179,10 +176,13 @@ fn main() {
 
     // create HashMap and tree
     let mut arena = highest_change_tree_create();
-    let tree_root = arena.new_node(TreeData {
+
+    // add root node
+    let tree_root = highest_change_tree_new_node(&mut arena, TreeData {
         name: FS_ROOT_PATH.clone(),
         ino: 1,
     });
+
     let mut root_scanned = false;
 
     if STATE_VERBOSE {
@@ -299,11 +299,7 @@ fn main() {
                     println!("INFO\tfilesystem root detected: trimming all nodes below");
                 }
 
-                let children: Vec<NodeId> = tree_root.children(&arena).collect();
-
-                for c in children {
-                    c.remove_subtree(&mut arena);
-                }
+                highest_change_tree_trim_below(&mut arena, tree_root);
 
                 root_scanned = true;
 
@@ -402,7 +398,7 @@ fn main() {
         });
     }
 
-    gen_parent_list(tree_root, &mut parent_list, FS_ROOT_PATH, &arena);
+    highest_change_tree_parse_leaves(tree_root, &mut parent_list, FS_ROOT_PATH, &arena);
 
     // write output file if entries were processed
 
@@ -436,29 +432,6 @@ fn main() {
     }
 }
 
-fn gen_parent_list(
-    node: NodeId,
-    parent_list: &mut Vec<TreeData>,
-    partial_path: String,
-    arena: &Arena<TreeData>,
-) {
-    for child in node.children(arena) {
-        let partial_path_new = format!("{}/{}", partial_path, arena[child].get().name);
-
-        if arena[child].first_child().is_none() {
-            // leaf: add new TreeData with abs path instead of relative and inode
-            parent_list.push(TreeData {
-                name: partial_path_new,
-                ino: arena[child].get().ino,
-            });
-
-            continue;
-        }
-
-        // node: extend path and keep recursing
-        gen_parent_list(child, parent_list, partial_path_new, arena);
-    }
-}
 
 /// parent-finder
 #[derive(Parser, Debug)]
