@@ -36,11 +36,8 @@ fn main() {
     let mut starting_ino: i64 = 0;
     let mut starting_minor: i64 = 0;
 
-    // read state from state file
-    let state_file_res = OpenOptions::new().read(true).open(&STATE_FILE);
-
     // if state file does not exist, create it and start from 0. On all other errors, panic.
-    match state_file_res {
+    match OpenOptions::new().read(true).open(&STATE_FILE) {
         Ok(f) => {
             let mut reader = BufReader::new(&f);
             let mut starting_state_str = String::new();
@@ -79,9 +76,7 @@ fn main() {
     }
 
     // check for existing STATE_SWAP_FILE
-    let state_file_new_res = OpenOptions::new().read(true).open(&STATE_SWAP_FILE);
-
-    if let Ok(_) = state_file_new_res {
+    if let Ok(_) = OpenOptions::new().read(true).open(&STATE_SWAP_FILE) {
         if STATE_VERBOSE {
             println!("Detected state swp file... removing")
         }
@@ -96,10 +91,7 @@ fn main() {
     let quota_minor: i64;
 
     // read state info from quota to keep tools in sync
-
-    let quota_state_file_res = OpenOptions::new().read(true).open(&QUOTA_STATE_FILE);
-
-    match quota_state_file_res {
+    match OpenOptions::new().read(true).open(&QUOTA_STATE_FILE) {
         Ok(f) => {
             let mut reader = BufReader::new(&f);
             let mut starting_state_str = String::new();
@@ -137,16 +129,14 @@ fn main() {
     }
 
     // open fd for filesystem root
-
-    let fs_root = OpenOptions::new().read(true).open(&FS_ROOT_PATH);
-    if let Err(e) = fs_root {
-        panic!(
+    let fs_root;
+    match OpenOptions::new().read(true).open(&FS_ROOT_PATH) {
+        Ok(f) => fs_root = f,
+        Err(e) => panic!(
             "open: {}\nFailed to open filesystem root at {}",
             e, &FS_ROOT_PATH
-        );
+        ),
     }
-
-    let fs_root = fs_root.expect("error unwrapping fs_root");
 
     // setup walk_inodes struct
 
@@ -178,10 +168,13 @@ fn main() {
     let mut arena = highest_change_tree_create();
 
     // add root node
-    let tree_root = highest_change_tree_new_node(&mut arena, TreeData {
-        name: FS_ROOT_PATH.clone(),
-        ino: 1,
-    });
+    let tree_root = highest_change_tree_new_node(
+        &mut arena,
+        TreeData {
+            name: FS_ROOT_PATH.clone(),
+            ino: 1,
+        },
+    );
 
     let mut root_scanned = false;
 
@@ -197,10 +190,8 @@ fn main() {
 
     // process batches until entries vector is empty
     loop {
-        let walk_inodes_arg_res = scoutwrap_walk_inodes(&fs_root, walk_inodes_arg.clone());
-
-        match walk_inodes_arg_res {
-            Ok(u) => walk_inodes_arg = u,
+        match scoutwrap_walk_inodes(&fs_root, walk_inodes_arg.clone()) {
+            Ok(w) => walk_inodes_arg = w,
             Err(e) => {
                 panic!("scoutwrap_walk_inodes: {}", e);
             }
@@ -215,7 +206,7 @@ fn main() {
 
         // process all but last element: last will be starting point of next run
         for entry in &walk_inodes_arg.entries_vec {
-            // don't process the last entry of batches that are not the last. The last entry of the final batch will be processed.
+            // don't process the last entry of batches that are not the last batch. The last entry of the final batch will be processed.
             if !last_batch && entry.ino == walk_inodes_arg.entries_vec.last().unwrap().ino {
                 walk_inodes_arg.first.major = walk_inodes_arg.entries_vec.last().unwrap().major;
                 walk_inodes_arg.first.ino = walk_inodes_arg.entries_vec.last().unwrap().ino;
@@ -262,9 +253,7 @@ fn main() {
 
             let mut ino_path_vec = Vec::new();
             loop {
-                let path_res = scoutwrap_ino_path(&fs_root, ino_path_arg.clone());
-
-                match path_res {
+                match scoutwrap_ino_path(&fs_root, ino_path_arg.clone()) {
                     Ok(p) => {
                         ino_path_vec.push(p.path);
 
@@ -291,7 +280,7 @@ fn main() {
                     }
                 }
             }
-                
+
             // handle root directory separately because it has empty path
             // - execution continues after to advance to final state
             if ino == 1 {
@@ -319,13 +308,13 @@ fn main() {
                 continue;
             }
 
-            // handle all paths to inode from hard links 
+            // handle all paths to inode from hard links
             for path in ino_path_vec {
                 if LOOP_VERBOSE {
                     println!("INFO\tprocessing\tinode: {}\tpath: {}", ino, path);
                 }
-                
-                highest_change_tree_add_path(&mut arena, tree_root, path, ino);  
+
+                highest_change_tree_add_path(&mut arena, tree_root, path, ino);
 
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
 
@@ -375,8 +364,6 @@ fn main() {
         }
     }
 
-    let mut parent_list: Vec<TreeData> = Vec::new();
-
     // don't bother with a parent list and output file if nothing changed
 
     if final_major == 0 && final_ino == 0 && final_minor == 0 {
@@ -390,7 +377,9 @@ fn main() {
 
         return;
     }
-    
+
+    let mut parent_list: Vec<TreeData> = Vec::new();
+
     if root_scanned {
         parent_list.push(TreeData {
             name: FS_ROOT_PATH.clone(),
@@ -401,8 +390,6 @@ fn main() {
     highest_change_tree_parse_leaves(tree_root, &mut parent_list, FS_ROOT_PATH, &arena);
 
     // write output file if entries were processed
-
-    println!("major: {final_major}, ino: {final_ino}, minor: {final_minor}");
 
     std::fs::create_dir_all(&OUTPUT_DIR).expect("failed to create output directory");
 
@@ -422,6 +409,7 @@ fn main() {
             .expect("failed to write path to output file");
     }
 
+    // debug print tree for development
     println!("{:?}", parent_list);
 
     if STATE_VERBOSE {
@@ -431,7 +419,6 @@ fn main() {
         );
     }
 }
-
 
 /// parent-finder
 #[derive(Parser, Debug)]
