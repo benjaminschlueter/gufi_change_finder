@@ -16,8 +16,8 @@ pub fn highest_change_tree_create() -> Arena<TreeData> {
     Arena::new()
 }
 
-pub fn highest_change_tree_new_node(arena: &mut Arena<TreeData>, root_data: TreeData) -> NodeId {
-   arena.new_node(root_data) 
+pub fn highest_change_tree_new_node(arena: &mut Arena<TreeData>, data: TreeData) -> NodeId {
+   arena.new_node(data) 
 }
 
 pub fn highest_change_tree_add_path(arena: &mut Arena<TreeData>, tree_root: NodeId, path: String, ino: u64) {
@@ -49,12 +49,12 @@ pub fn highest_change_tree_add_path(arena: &mut Arena<TreeData>, tree_root: Node
             else {
                 // if adding a leaf, set the inode in TreeData
                 if *entry == path_vec_last {
-                    child = arena.new_node(TreeData {
+                    child = highest_change_tree_new_node(arena, TreeData {
                         name: entry.to_string(),
                         ino: ino,
                     });
                 } else {
-                    child = arena.new_node(TreeData {
+                    child = highest_change_tree_new_node(arena, TreeData {
                         name: entry.to_string(),
                         ino: 0,
                     });
