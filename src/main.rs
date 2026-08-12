@@ -10,7 +10,6 @@ use std::fs::OpenOptions;
 use std::io::ErrorKind;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
-use std::time::{Duration, Instant};
 
 use clap::Parser;
 
@@ -22,7 +21,6 @@ fn main() {
 
     let args = Args::parse();
 
-    let CHECKPOINT_MS = args.checkpoint_ms;
     let BATCH_SIZE = args.batch_size;
     let STATE_FILE = args.state_file_path;
     let STATE_SWAP_FILE = format!("{STATE_FILE}.swp");
@@ -185,9 +183,6 @@ fn main() {
         );
     }
 
-    let start_time = Instant::now();
-    let mut last_checkpoint = Duration::from_millis(0);
-
     // process batches until entries vector is empty
     loop {
         match scoutwrap_walk_inodes(&fs_root, walk_inodes_arg.clone()) {
@@ -324,14 +319,8 @@ fn main() {
             } // end ino_path_vec loop
         }
 
-        let cur_time = start_time.elapsed();
-
         // save state on last batch or every CHECKPOINT_MS
-        if last_batch || cur_time - last_checkpoint > Duration::from_millis(CHECKPOINT_MS) {
-            if LOOP_VERBOSE || STATE_VERBOSE {
-                println!("INFO\tcheckpoint at {:?}", cur_time);
-            }
-
+        if last_batch {
             // update state file with final state
             if final_major != starting_major as u64 && final_major != 0 {
                 let mut new_state_file = OpenOptions::new()
@@ -355,8 +344,6 @@ fn main() {
                     panic!("failed to rename state swp file: {}", e.to_string())
                 }
             }
-
-            last_checkpoint = cur_time;
         }
 
         if last_batch {
@@ -424,10 +411,6 @@ fn main() {
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Frequency of checkpoints to the state file
-    #[arg(short = 'm', long, default_value_t = 60000)]
-    checkpoint_ms: u64,
-
     /// Number of inodes to process in a single batch
     #[arg(short, long, default_value_t = 65536)]
     batch_size: usize,
