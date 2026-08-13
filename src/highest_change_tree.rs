@@ -1,21 +1,19 @@
-/* Description:
- * This library provides an interface to create and manage a tree with leaves that represent the
- * highest directories in which changes occured in a filesystem. It is intended to receive path
- * input from a changelog.
- *
- * Create a tree by calling highest_change_tree_create() and highest_change_tree_new_node with the
- * filesystem root path and inode number. A variable in the calling program should own the Arena
- * with the tree data.
- *
- * As paths are provided to highest_change_tree_add_path, the tree will be expanded so new
- * nodes that would end up below the leaves are ignored, and new nodes added above the leaves will trim
- * nodes in the tree below them and become new leaves. To reduce the trees memory footprint, nodes
- * with large numbers of children will be trimmed when their child count reaches the defined limit.
- *
- * When the tree is fully generated, it can be parsed into a list with highest_change_tree_parse_leaves.
- * This function traverses the tree recursively and adds leaves to a vector that will be returned.
- *
- */
+//! Description:
+//! This library provides an interface to create and manage a tree with leaves that represent the
+//! highest directories in which changes occured in a filesystem. It is intended to receive path
+//! input from a changelog.
+//!
+//! Create a tree by calling highest_change_tree_create() and highest_change_tree_new_node with the
+//! filesystem root path and inode number. A variable in the calling program should own the Arena
+//! with the tree data.
+//!
+//! As paths are provided to highest_change_tree_add_path, the tree will be expanded so new
+//! nodes that would end up below the leaves are ignored, and new nodes added above the leaves will trim
+//! nodes in the tree below them and become new leaves. To reduce the trees memory footprint, nodes
+//! with large numbers of children will be trimmed when their child count reaches the defined limit.
+//!
+//! When the tree is fully generated, it can be parsed into a list with highest_change_tree_parse_leaves.
+//! This function traverses the tree recursively and adds leaves to a vector that will be returned.
 
 use indextree::{Arena, NodeId};
 
@@ -27,22 +25,20 @@ pub struct TreeData {
     pub ino: u64,
 }
 
-// Create Arena structure for the tree
-pub fn highest_change_tree_create() -> Arena<TreeData> {
+/// Create Arena structure for the tree
+pub fn create() -> Arena<TreeData> {
     Arena::new()
 }
 
-/* Add a new node to the Arena. This function is intended to create the root node only and return
- * its NodeId to the caller. Non root nodes with parents must be appended to the parent NodeId, which is only
- * needed in the add_path function, and is not exposed as part of the interface.
- */
-pub fn highest_change_tree_new_node(arena: &mut Arena<TreeData>, data: TreeData) -> NodeId {
+/// Add a new node to the Arena. This function is intended to create the root node only and return
+/// its NodeId to the caller. Non root nodes with parents must be appended to the parent NodeId, which is only
+/// needed in the add_path function, and is not exposed as part of the interface.
+pub fn new_node(arena: &mut Arena<TreeData>, data: TreeData) -> NodeId {
     arena.new_node(data)
 }
 
-/* The full process of adding a node with a path to the tree and trimming when necessary.
- */
-pub fn highest_change_tree_add_path(
+///The full process of adding a node with a path to the tree and trimming when necessary.
+pub fn add_path(
     arena: &mut Arena<TreeData>,
     tree_root: NodeId,
     path: String,
@@ -75,7 +71,7 @@ pub fn highest_change_tree_add_path(
         else {
             // if adding a leaf, set the inode in TreeData
             if *entry == path_vec_last {
-                child = highest_change_tree_new_node(
+                child = new_node(
                     arena,
                     TreeData {
                         name: entry.to_string(),
@@ -83,7 +79,7 @@ pub fn highest_change_tree_add_path(
                     },
                 );
             } else {
-                child = highest_change_tree_new_node(
+                child = new_node(
                     arena,
                     TreeData {
                         name: entry.to_string(),
@@ -103,7 +99,7 @@ pub fn highest_change_tree_add_path(
 
                 // remove all children and grand children of cur_node
 
-                highest_change_tree_trim_below(arena, cur_node);
+                trim_below(arena, cur_node);
 
                 // cur_node becomes a leaf and no more children will be added
 
@@ -113,7 +109,7 @@ pub fn highest_change_tree_add_path(
 
         // if child is at bottom, trim below if node has children
         if *entry == path_vec_last && child.children(arena).count() > 0 {
-            highest_change_tree_trim_below(arena, child);
+            trim_below(arena, child);
         }
 
         // update cur_node for next iteration
@@ -121,10 +117,9 @@ pub fn highest_change_tree_add_path(
     }
 }
 
-/* Trims all nodes below node with NodeId. This function is public so the caller can trim below the
- * root in the case where it is found.
- */
-pub fn highest_change_tree_trim_below(arena: &mut Arena<TreeData>, node: NodeId) {
+/// Trims all nodes below node with NodeId. This function is public so the caller can trim below the
+/// root in the case where it is found.
+pub fn trim_below(arena: &mut Arena<TreeData>, node: NodeId) {
     let children: Vec<NodeId> = node.children(arena).collect();
 
     for c in children {
@@ -132,9 +127,8 @@ pub fn highest_change_tree_trim_below(arena: &mut Arena<TreeData>, node: NodeId)
     }
 }
 
-/* This recursive function traverses the tree to the leaves and adds them to a vector for output.
- */
-pub fn highest_change_tree_parse_leaves(
+/// This recursive function traverses the tree to the leaves and adds them to a vector for output.
+pub fn parse_leaves(
     node: NodeId,
     parent_list: &mut Vec<TreeData>,
     partial_path: String,
@@ -146,6 +140,12 @@ pub fn highest_change_tree_parse_leaves(
         if arena[child].first_child().is_none() {
             // leaf: add new TreeData with abs path instead of relative and inode
 
+            // stat to determine if file and parent needs to be added instead (could do some tree
+            // child scan optimization here: if other files belong to this parent, skip those
+            // files)
+
+            // generate FUSE path from tree reference path and add that to list as well 
+
             parent_list.push(TreeData {
                 name: partial_path_new,
                 ino: arena[child].get().ino,
@@ -155,6 +155,6 @@ pub fn highest_change_tree_parse_leaves(
         }
 
         // node: extend path and keep recursing
-        highest_change_tree_parse_leaves(child, parent_list, partial_path_new, arena);
+        parse_leaves(child, parent_list, partial_path_new, arena);
     }
 }

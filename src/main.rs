@@ -138,19 +138,19 @@ fn main() {
 
     // setup walk_inodes struct
 
-    let first = ScoutwrapWalkInodesEntry {
+    let first = scoutwrap::WalkInodesEntry {
         major: starting_major as u64,
         ino: starting_ino as u64,
         minor: starting_minor as u32,
     };
 
-    let last = ScoutwrapWalkInodesEntry {
+    let last = scoutwrap::WalkInodesEntry {
         major: std::u64::MAX,
         ino: std::u64::MAX,
         minor: std::u32::MAX,
     };
 
-    let mut walk_inodes_arg = ScoutwrapWalkInodes {
+    let mut walk_inodes_arg = scoutwrap::WalkInodes {
         first: first,
         last: last,
         entries_vec: Vec::new(),
@@ -163,10 +163,10 @@ fn main() {
     let mut final_minor = 0;
 
     // create HashMap and tree
-    let mut arena = highest_change_tree_create();
+    let mut arena = highest_change_tree::create();
 
     // add root node
-    let tree_root = highest_change_tree_new_node(
+    let tree_root = highest_change_tree::new_node(
         &mut arena,
         TreeData {
             name: FS_ROOT_PATH.clone(),
@@ -185,10 +185,10 @@ fn main() {
 
     // process batches until entries vector is empty
     loop {
-        match scoutwrap_walk_inodes(&fs_root, walk_inodes_arg.clone()) {
+        match scoutwrap::walk_inodes(&fs_root, walk_inodes_arg.clone()) {
             Ok(w) => walk_inodes_arg = w,
             Err(e) => {
-                panic!("scoutwrap_walk_inodes: {}", e);
+                panic!("scoutwrap::walk_inodes: {}", e);
             }
         }
 
@@ -236,7 +236,7 @@ fn main() {
                 break;
             }
 
-            let mut ino_path_arg = ScoutwrapInoPath {
+            let mut ino_path_arg = scoutwrap::InoPath {
                 ino: ino,
                 dir_ino: 0,
                 dir_pos: 0,
@@ -248,7 +248,7 @@ fn main() {
 
             let mut ino_path_vec = Vec::new();
             loop {
-                match scoutwrap_ino_path(&fs_root, ino_path_arg.clone()) {
+                match scoutwrap::ino_path(&fs_root, ino_path_arg.clone()) {
                     Ok(p) => {
                         ino_path_vec.push(p.path);
 
@@ -270,7 +270,7 @@ fn main() {
                             // this case now happens every inode on the final loop iteration
                             break;
                         } else {
-                            panic!("scoutwrap_ino_path: {} on inode {}", e, ino);
+                            panic!("scoutwrap::ino_path: {} on inode {}", e, ino);
                         }
                     }
                 }
@@ -283,7 +283,7 @@ fn main() {
                     println!("INFO\tfilesystem root detected: trimming all nodes below");
                 }
 
-                highest_change_tree_trim_below(&mut arena, tree_root);
+                highest_change_tree::trim_below(&mut arena, tree_root);
 
                 root_scanned = true;
 
@@ -309,7 +309,9 @@ fn main() {
                     println!("INFO\tprocessing\tinode: {}\tpath: {}", ino, path);
                 }
 
-                highest_change_tree_add_path(&mut arena, tree_root, path, ino);
+                // filter incoming reference paths, etc. before they are added to the tree
+
+                highest_change_tree::add_path(&mut arena, tree_root, path, ino);
 
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
 
@@ -374,7 +376,7 @@ fn main() {
         });
     }
 
-    highest_change_tree_parse_leaves(tree_root, &mut parent_list, FS_ROOT_PATH, &arena);
+    highest_change_tree::parse_leaves(tree_root, &mut parent_list, FS_ROOT_PATH, &arena);
 
     // write output file if entries were processed
 

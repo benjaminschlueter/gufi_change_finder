@@ -17,24 +17,24 @@ pub const MAX_HARDLINKS: usize = 8;
  * @param minor: minor timestamp
  */
 #[derive(Debug, Clone)]
-pub struct ScoutwrapWalkInodesEntry {
+pub struct WalkInodesEntry {
     pub major: u64,
     pub ino: u64,
     pub minor: u32,
 }
 
-/* To be used with scoutwrap_walk_inodes()
+/* To be used with walk_inodes()
  * @param first: starting point in the change log
  * @param last: stop point in the change log
- * @param entries_vec: to be populated with ScoutwrapWalkInodesEntry structs. Will be overwritten at the end of the function.
+ * @param entries_vec: to be populated with WalkInodesEntry structs. Will be overwritten at the end of the function.
  * @param nr_entries: tells ScoutFS the limit of entry structs to fill the buffer with
  * @param index: see ScoutFS ioctl.h for which macro to set this with
  */
 #[derive(Debug, Clone)]
-pub struct ScoutwrapWalkInodes {
-    pub first: ScoutwrapWalkInodesEntry,
-    pub last: ScoutwrapWalkInodesEntry,
-    pub entries_vec: Vec<ScoutwrapWalkInodesEntry>, // MUST BE EMPTY
+pub struct WalkInodes {
+    pub first: WalkInodesEntry,
+    pub last: WalkInodesEntry,
+    pub entries_vec: Vec<WalkInodesEntry>, // MUST BE EMPTY
     pub nr_entries: usize,
     pub index: u8,
 }
@@ -43,10 +43,10 @@ pub struct ScoutwrapWalkInodes {
  * Allocates and populates the entries_vec in user_arg to contain nr_entries entry structs from inodes within the minor:major range. This function allocates the buffer. The caller does not have to worry about setting up a buffer.
  * Moves the callers struct inside, modifies and returns it.
  */
-pub fn scoutwrap_walk_inodes(
+pub fn walk_inodes(
     root_fs: &File,
-    mut user_arg: ScoutwrapWalkInodes,
-) -> Result<ScoutwrapWalkInodes, String> {
+    mut user_arg: WalkInodes,
+) -> Result<WalkInodes, String> {
     // create scoutfs_ioctl_walk_inodes and entries structs
 
     let first_c = scoutfs_ioctl_walk_inodes_entry {
@@ -102,7 +102,7 @@ pub fn scoutwrap_walk_inodes(
     let entries = entries_c
         .into_iter()
         .filter(|entry_c| !(entry_c.major == 0 && entry_c.ino == 0 && entry_c.minor == 0))
-        .map(|entry_c| ScoutwrapWalkInodesEntry {
+        .map(|entry_c| WalkInodesEntry {
             major: entry_c.major,
             ino: entry_c.ino,
             minor: entry_c.minor,
@@ -117,7 +117,7 @@ pub fn scoutwrap_walk_inodes(
 /* Input for INO_PATH ioctl function
  */
 #[derive(Debug, Clone)]
-pub struct ScoutwrapInoPath {
+pub struct InoPath {
     pub ino: u64,
     pub dir_ino: u64,
     pub dir_pos: u64,
@@ -128,7 +128,7 @@ pub struct ScoutwrapInoPath {
 /* Result output for INO_PATH ioctl function
  */
 #[derive(Debug, Clone)]
-pub struct ScoutwrapInoPathResult {
+pub struct InoPathResult {
     pub ino: u64,
     pub dir_ino: u64,
     pub dir_pos: u64,
@@ -141,10 +141,10 @@ pub struct ScoutwrapInoPathResult {
  * @param path_arg: struct with input for scoutfs ioctl
  * @return ioctl result struct
  */
-pub fn scoutwrap_ino_path(
+pub fn ino_path(
     root_fs: &File,
-    path_arg: ScoutwrapInoPath,
-) -> Result<ScoutwrapInoPathResult, String> {
+    path_arg: InoPath,
+) -> Result<InoPathResult, String> {
     // ioctl function buffer
     let result_ptr;
     unsafe {
@@ -176,7 +176,7 @@ pub fn scoutwrap_ino_path(
 
         let ret_str = CStr::from_ptr(path_ptr).to_str().unwrap().to_owned();
 
-        let ret_struct = ScoutwrapInoPathResult {
+        let ret_struct = InoPathResult {
             ino: path_arg.ino,
             dir_ino: (*entry_c).dir_ino,
             dir_pos: (*entry_c).dir_pos,
@@ -189,7 +189,7 @@ pub fn scoutwrap_ino_path(
 }
 
 #[derive(Debug, Clone)]
-pub struct ScoutwrapListxattrHidden {
+pub struct ListxattrHidden {
     pub id_pos: u64,
     pub xattr_list: Vec<String>, // possible to have more than 1 xattr
     pub buf_bytes: usize,
@@ -201,9 +201,9 @@ pub struct ScoutwrapListxattrHidden {
  * @param xattr_arg
  * @return vector of owned strings with all xattr names
  */
-pub fn scoutwrap_listxattr_hidden(
+pub fn listxattr_hidden(
     fd: BorrowedFd,
-    xattr_arg: ScoutwrapListxattrHidden,
+    xattr_arg: ListxattrHidden,
 ) -> Result<Vec<String>, String> {
     let buf;
     unsafe {

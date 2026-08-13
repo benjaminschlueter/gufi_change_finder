@@ -6,5 +6,5 @@
 
 #[allow(unsafe_op_in_unsafe_fn)]
 pub mod bindings {
-    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+        include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
