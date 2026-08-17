@@ -21,11 +21,12 @@ use std::{mem, slice, str};
 pub const STR_BUF_SIZE: usize = 512;
 pub const MAX_HARDLINKS: usize = 8;
 
-/* Represents a point in the ScoutFS changelog.
- * @param major: major timestamp
- * @param ino: inode number
- * @param minor: minor timestamp
- */
+/// SEE SCOUTFS GITHUB PAGE FOR IOCTL DOCUMENTATION. THIS CRATE REPLICATES FUNCTIONALITY AS CLOSELY
+/// AS POSSIBLE TO THE ORIGINAL C INTERFACE. 
+///
+/// Documentation for the ioctl is in the header file kmod/src/ioctl.h
+
+/// Output of walk_inodes ioctl
 #[derive(Debug, Clone)]
 pub struct WalkInodesEntry {
     pub major: u64,
@@ -33,13 +34,7 @@ pub struct WalkInodesEntry {
     pub minor: u32,
 }
 
-/* To be used with walk_inodes()
- * @param first: starting point in the change log
- * @param last: stop point in the change log
- * @param entries_vec: to be populated with WalkInodesEntry structs. Will be overwritten at the end of the function.
- * @param nr_entries: tells ScoutFS the limit of entry structs to fill the buffer with
- * @param index: see ScoutFS ioctl.h for which macro to set this with
- */
+/// Input for walk_inodes ioctl
 #[derive(Debug, Clone)]
 pub struct WalkInodes {
     pub first: WalkInodesEntry,
@@ -49,10 +44,8 @@ pub struct WalkInodes {
     pub index: u8,
 }
 
-/* WALK_INODES
- * Allocates and populates the entries_vec in user_arg to contain nr_entries entry structs from inodes within the minor:major range. This function allocates the buffer. The caller does not have to worry about setting up a buffer.
- * Moves the callers struct inside, modifies and returns it.
- */
+/// Allocates and populates the entries_vec in user_arg to contain nr_entries entry structs from inodes within the minor:major range. This function allocates the buffer. The caller does not have to worry about setting up a buffer.
+/// Moves the callers struct inside, modifies and returns it.
 pub fn walk_inodes(
     root_fs: &File,
     mut user_arg: WalkInodes,
@@ -124,8 +117,7 @@ pub fn walk_inodes(
     Ok(user_arg)
 }
 
-/* Input for INO_PATH ioctl function
- */
+/// Input for INO_PATH ioctl function
 #[derive(Debug, Clone)]
 pub struct InoPath {
     pub ino: u64,
@@ -135,8 +127,7 @@ pub struct InoPath {
     pub result_bytes: usize,
 }
 
-/* Result output for INO_PATH ioctl function
- */
+/// Result output for INO_PATH ioctl function
 #[derive(Debug, Clone)]
 pub struct InoPathResult {
     pub ino: u64,
@@ -146,11 +137,7 @@ pub struct InoPathResult {
     pub path: String,
 }
 
-/* Return result of INO_PATH ioctl function, containing the path of the file with specified inode.
- * @param root_fs
- * @param path_arg: struct with input for scoutfs ioctl
- * @return ioctl result struct
- */
+/// Provides a path for a file with an inode. Paired with walk_inodes to get change log file paths.
 pub fn ino_path(
     root_fs: &File,
     path_arg: InoPath,
@@ -198,6 +185,7 @@ pub fn ino_path(
     }
 }
 
+/// Input arg for listxattr_hidden ioctl
 #[derive(Debug, Clone)]
 pub struct ListxattrHidden {
     pub id_pos: u64,
@@ -206,11 +194,7 @@ pub struct ListxattrHidden {
     pub hash_pos: u32,
 }
 
-/* Return a vector of owned string with the names of ScoutFS xattrs attached to a file.
- * @param fd: file descriptor for file being queried
- * @param xattr_arg
- * @return vector of owned strings with all xattr names
- */
+/// Returns a vector of owned string with the names of ScoutFS xattrs attached to a file.
 pub fn listxattr_hidden(
     fd: BorrowedFd,
     xattr_arg: ListxattrHidden,
