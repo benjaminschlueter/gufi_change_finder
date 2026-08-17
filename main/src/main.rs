@@ -1,9 +1,6 @@
 #![allow(non_snake_case)]
 
-mod scoutwrap;
 use scoutwrap::*;
-
-mod highest_change_tree;
 use highest_change_tree::*;
 
 use std::fs::OpenOptions;

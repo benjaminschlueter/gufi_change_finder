@@ -3,8 +3,8 @@
 /output
 /log
 /run
-/src/scoutfs
-/src/scoutwrap/libscoutwrap.a
+/scoutwrap/src/scoutfs
+/scoutwrap/src/scoutwrap/libscoutwrap.a
 /scripts
 /reindex_work
 /.cargo

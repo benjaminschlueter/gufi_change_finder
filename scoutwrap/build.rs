@@ -6,6 +6,7 @@ const SCOUTFS_PATH: &'static str = "src/scoutfs";
 fn main() {
     println!("cargo::rerun-if-changed={}/scoutwrap.c", SCOUTWRAP_PATH);
     println!("cargo::rerun-if-changed={}/scoutwrap.h", SCOUTWRAP_PATH);
+    println!("cargo::rerun-if-changed={}/scoutwrap.a", SCOUTWRAP_PATH);
     println!("cargo::rerun-if-changed={}/Makefile", SCOUTWRAP_PATH);
 
     Command::new("make")
@@ -43,7 +44,7 @@ fn main() {
         .write_to_file(bindings_path)
         .expect("Failed to write to {bindings_path}");
 
-    println!("cargo:rustc-link-search={}", SCOUTWRAP_PATH);
+    println!("cargo:rustc-link-search=../scoutwrap/{}", SCOUTWRAP_PATH);
     println!("cargo:rustc-env=LD_LIBRARY_PATH={}", SCOUTWRAP_PATH);
     println!("cargo:rustc-link-lib=scoutwrap");
 }

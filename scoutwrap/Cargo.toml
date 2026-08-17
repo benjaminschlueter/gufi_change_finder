@@ -1,0 +1,13 @@
+[package]
+name = "scoutwrap"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bindgen = "0.71.1"
+libc = "0.2.183"
+nix = {version = "0.31.2", features = ["fs"]}
+rustix = "1.1.4"
+
+[build-dependencies]
+bindgen = "0.71.1"
