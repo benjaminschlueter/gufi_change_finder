@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
-use scoutwrap::*;
 use highest_change_tree::*;
+use scoutwrap::*;
 
 use std::fs::OpenOptions;
 use std::io::ErrorKind;
@@ -160,16 +160,10 @@ fn main() {
     let mut final_minor = 0;
 
     // create HashMap and tree
-    let mut arena = highest_change_tree::create();
-
-    // add root node
-    let tree_root = highest_change_tree::new_node(
-        &mut arena,
-        TreeData {
-            name: FS_ROOT_PATH.clone(),
-            ino: 1,
-        },
-    );
+    let mut tree = ChangeTree::new(TreeData {
+        name: FS_ROOT_PATH.clone(),
+        ino: 1,
+    });
 
     let mut root_scanned = false;
 
@@ -279,8 +273,9 @@ fn main() {
                 if LOOP_VERBOSE {
                     println!("INFO\tfilesystem root detected: trimming all nodes below");
                 }
-
-                highest_change_tree::trim_below(&mut arena, tree_root);
+                
+                let root_clone_tmp = tree.root.clone();
+                ChangeTree::trim_below(&mut tree, root_clone_tmp);
 
                 root_scanned = true;
 
@@ -308,7 +303,7 @@ fn main() {
 
                 // filter incoming reference paths, etc. before they are added to the tree
 
-                highest_change_tree::add_path(&mut arena, tree_root, path, ino);
+                ChangeTree::add_path(&mut tree, path, ino);
 
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
 
@@ -373,7 +368,7 @@ fn main() {
         });
     }
 
-    highest_change_tree::parse_leaves(tree_root, &mut parent_list, FS_ROOT_PATH, &arena);
+    ChangeTree::parse_leaves(&tree, &mut parent_list, FS_ROOT_PATH);
 
     // write output file if entries were processed
 

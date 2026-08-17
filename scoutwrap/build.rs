@@ -1,5 +1,6 @@
 use std::{path::PathBuf, process::Command};
 
+const WORKSPACE_PATH: &'static str = "/opt/storage/gufi_change_finder";
 const SCOUTWRAP_PATH: &'static str = "src/scoutwrap";
 const SCOUTFS_PATH: &'static str = "src/scoutfs";
 
@@ -44,7 +45,7 @@ fn main() {
         .write_to_file(bindings_path)
         .expect("Failed to write to {bindings_path}");
 
-    println!("cargo:rustc-link-search=../scoutwrap/{}", SCOUTWRAP_PATH);
+    println!("cargo:rustc-link-search={}/scoutwrap/{}", WORKSPACE_PATH, SCOUTWRAP_PATH);
     println!("cargo:rustc-env=LD_LIBRARY_PATH={}", SCOUTWRAP_PATH);
     println!("cargo:rustc-link-lib=scoutwrap");
 }
