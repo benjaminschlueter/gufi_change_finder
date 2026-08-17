@@ -274,8 +274,7 @@ fn main() {
                     println!("INFO\tfilesystem root detected: trimming all nodes below");
                 }
                 
-                let root_clone_tmp = tree.root.clone();
-                ChangeTree::trim_below(&mut tree, root_clone_tmp);
+                ChangeTree::trim_below_root(&mut tree);
 
                 root_scanned = true;
 

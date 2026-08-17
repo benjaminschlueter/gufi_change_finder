@@ -28,7 +28,7 @@ pub struct TreeData {
 #[derive(Debug)]
 pub struct ChangeTree {
     arena: Arena<TreeData>,
-    pub root: NodeId,
+    root: NodeId,
 }
 
 impl ChangeTree {
@@ -72,22 +72,12 @@ impl ChangeTree {
             }
             // node not found: add it
             else {
-                // if adding a leaf, set the inode in TreeData
-                if *entry == path_vec_last {
-                    child = tree.arena.new_node(
-                        TreeData {
-                            name: entry.to_string(),
-                            ino: ino,
-                        }
-                    );
-                } else {
-                    child = tree.arena.new_node(
-                        TreeData {
-                            name: entry.to_string(),
-                            ino: 0,
-                        }
-                    );
-                }
+                child = tree.arena.new_node(
+                    TreeData {
+                        name: entry.to_string(),
+                        ino: ino,
+                    }
+                );
 
                 // add new child to cur_node
                 cur_node.append(child, &mut tree.arena);
@@ -118,16 +108,24 @@ impl ChangeTree {
         }
     }
 
-    /// Trims all nodes below node with NodeId. This function is public so the caller can trim below the
-    /// root in the case where it is found.
-    pub fn trim_below(tree: &mut ChangeTree, node: NodeId) {
+    /// Trims all nodes below node with NodeId. A helper for add_path. 
+    fn trim_below(tree: &mut ChangeTree, node: NodeId) {
         let children: Vec<NodeId> = node.children(&tree.arena).collect();
 
         for c in children {
             c.remove_subtree(&mut tree.arena);
         }
     }
+    
+    /// Trims all nodes below the root. This function is public so the caller can trim below the
+    /// root in the case where it is found.
+    pub fn trim_below_root(tree: &mut ChangeTree) {
+        let children: Vec<NodeId> = tree.root.children(&tree.arena).collect();
 
+        for c in children {
+            c.remove_subtree(&mut tree.arena);
+        }
+    }
     /// This recursive function traverses the tree to the leaves and adds them to a vector for output.
     pub fn parse_leaves(
         &self,
