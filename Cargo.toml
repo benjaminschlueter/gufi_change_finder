@@ -1,5 +1,5 @@
 [workspace]
-members = ["main", "highest_change_tree", "scoutwrap", "marfs_pathman"]
+members = ["highest_change_tree", "scoutwrap", "marfs_pathman", "parse_changelog"]
 resolver = "3"
 
 [workspace.dependencies]

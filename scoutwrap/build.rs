@@ -1,6 +1,6 @@
 use std::{path::PathBuf, process::Command};
 
-const WORKSPACE_PATH: &'static str = "/opt/storage/gufi_change_finder";
+const WORKSPACE_PATH: &'static str = "/home/benja/gufi_change_finder";
 const SCOUTWRAP_PATH: &'static str = "src/scoutwrap";
 const SCOUTFS_PATH: &'static str = "src/scoutfs";
 

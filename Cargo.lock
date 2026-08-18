@@ -218,18 +218,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 
 [[package]]
-name = "gufi_change_finder"
-version = "0.1.0"
-dependencies = [
- "clap",
- "highest_change_tree",
- "marfs_pathman",
- "scoutwrap",
- "users",
- "whoami",
-]
-
-[[package]]
 name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -409,6 +397,18 @@ name = "once_cell_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
+
+[[package]]
+name = "parse_changelog"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "highest_change_tree",
+ "marfs_pathman",
+ "scoutwrap",
+ "users",
+ "whoami",
+]
 
 [[package]]
 name = "pin-project-lite"
