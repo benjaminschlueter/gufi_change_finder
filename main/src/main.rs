@@ -161,7 +161,7 @@ fn main() {
 
     // create HashMap and tree
     let mut tree = ChangeTree::new(TreeData {
-        name: FS_ROOT_PATH.clone(),
+        path: FS_ROOT_PATH.clone(),
         ino: 1,
     });
 
@@ -273,7 +273,7 @@ fn main() {
                 if LOOP_VERBOSE {
                     println!("INFO\tfilesystem root detected: trimming all nodes below");
                 }
-                
+
                 ChangeTree::trim_below_root(&mut tree);
 
                 root_scanned = true;
@@ -302,7 +302,15 @@ fn main() {
 
                 // filter incoming reference paths, etc. before they are added to the tree
 
-                ChangeTree::add_path(&mut tree, path, ino);
+                // generate the FUSE path for this reference path
+
+                ChangeTree::add_path(
+                    &mut tree,
+                    TreeData {
+                        path: path,
+                        ino: ino,
+                    },
+                );
 
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
 
@@ -362,7 +370,7 @@ fn main() {
 
     if root_scanned {
         parent_list.push(TreeData {
-            name: FS_ROOT_PATH.clone(),
+            path: FS_ROOT_PATH.clone(),
             ino: 1,
         });
     }
@@ -385,7 +393,7 @@ fn main() {
 
     for item in &parent_list {
         // terminate with null byte to protect issues with weird user paths
-        writeln!(writer, "{}\0,{}", item.name, item.ino)
+        writeln!(writer, "{}\0,{}", item.path, item.ino)
             .expect("failed to write path to output file");
     }
 

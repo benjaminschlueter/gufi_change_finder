@@ -21,7 +21,7 @@ const MAX_CHILD_COUNT: usize = 1024; // if a node has more than this many childr
 
 #[derive(Debug, Clone)]
 pub struct TreeData {
-    pub name: String,
+    pub path: String,
     pub ino: u64,
 }
 
@@ -44,12 +44,11 @@ impl ChangeTree {
     ///The full process of adding a node with a path to the tree and trimming when necessary.
     pub fn add_path(
         tree: &mut ChangeTree,
-        path: String,
-        ino: u64,
+        data: TreeData
     ) {
-        let mut path_vec: Vec<&str> = path.split('/').collect();
-        let tree_root_name = tree.arena[tree.root].get().name.clone();
-        path_vec.insert(0, &tree_root_name); // path_vec must be length 2 or greater
+        let mut path_vec: Vec<&str> = data.path.split('/').collect();
+        let tree_root_path = tree.arena[tree.root].get().path.clone();
+        path_vec.insert(0, &tree_root_path); // path_vec must be length 2 or greater
 
         let mut cur_node = tree.root;
         let mut child;
@@ -61,7 +60,7 @@ impl ChangeTree {
             // check if cur_node has child named entry
             if let Some(c) = cur_node
                 .children(&tree.arena)
-                .find(|&child| *tree.arena[child].get().name == *entry.to_owned())
+                .find(|&child| *tree.arena[child].get().path == *entry.to_owned())
             {
                 // if leaf, break because this is already being rescanned
                 if c.children(&tree.arena).count() == 0 {
@@ -74,8 +73,8 @@ impl ChangeTree {
             else {
                 child = tree.arena.new_node(
                     TreeData {
-                        name: entry.to_string(),
-                        ino: ino,
+                        path: entry.to_string(),
+                        ino: data.ino,
                     }
                 );
 
@@ -144,7 +143,7 @@ impl ChangeTree {
     ) {
      
         for child in node.children(&self.arena) {
-            let partial_path_new = format!("{}/{}", partial_path, self.arena[child].get().name);
+            let partial_path_new = format!("{}/{}", partial_path, self.arena[child].get().path);
 
             if self.arena[child].first_child().is_none() {
                 // leaf: add new TreeData with abs path instead of relative and inode
@@ -156,7 +155,7 @@ impl ChangeTree {
                 // generate FUSE path from tree reference path and add that to list as well 
 
                 parent_list.push(TreeData {
-                    name: partial_path_new,
+                    path: partial_path_new,
                     ino: self.arena[child].get().ino,
                 });
 
