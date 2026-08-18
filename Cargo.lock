@@ -240,6 +240,7 @@ name = "highest_change_tree"
 version = "0.1.0"
 dependencies = [
  "indextree",
+ "marfs_pathman",
 ]
 
 [[package]]

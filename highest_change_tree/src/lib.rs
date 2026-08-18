@@ -16,6 +16,7 @@
 //! This function traverses the tree recursively and adds leaves to a vector that will be returned.
 
 use indextree::{Arena, NodeId};
+use std::fs;
 
 const MAX_CHILD_COUNT: usize = 1024; // if a node has more than this many children, give up adding more and rescan the whole parent dir
 
@@ -151,8 +152,15 @@ impl ChangeTree {
                 // stat to determine if file and parent needs to be added instead (could do some tree
                 // child scan optimization here: if other files belong to this parent, skip those
                 // files)
+                
 
+                println!("{}", &partial_path_new);
+                if fs::metadata(&partial_path_new).expect(&format!("failed to stat {}", &partial_path_new)).is_file() {
+                    println!("file: {}", &partial_path_new);
+                }
+                
                 // generate FUSE path from tree reference path and add that to list as well 
+                let fuse_path = marfs_pathman::internal_to_user(&partial_path_new);
 
                 parent_list.push(TreeData {
                     path: partial_path_new,

@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 indextree = "4.8.1"
+marfs_pathman = { path = "../marfs_pathman" }

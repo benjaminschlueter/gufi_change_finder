@@ -300,19 +300,15 @@ fn main() {
                     println!("INFO\tprocessing\tinode: {}\tpath: {}", ino, path);
                 }
                 
-                if marfs_pathman::gufi_filter(&FS_ROOT_PATH, &path) {
-                    continue;
+                if marfs_pathman::filter_internal(&path) {
+                    ChangeTree::add_path(
+                        &mut tree,
+                        TreeData {
+                            path: path,
+                            ino: ino,
+                        },
+                    );
                 }
-
-                // generate the FUSE path for this reference path
-
-                ChangeTree::add_path(
-                    &mut tree,
-                    TreeData {
-                        path: path,
-                        ino: ino,
-                    },
-                );
 
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
 

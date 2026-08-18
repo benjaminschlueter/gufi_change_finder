@@ -2,32 +2,52 @@
 /// the quota file MDAL_datasize, anything in the reference tree MDAL_reference and the 
 /// MDAL_subspaces directory itself. 
 /// Assumes a valid path from the ScoutFS ioctl is provided.
-pub fn gufi_filter(root_path: &str, path: &str) -> bool {
+pub fn filter_internal(path: &str) -> bool {
 
     // separate path by / into vector
-    let mut path_vec: Vec<&str> = path.split('/').collect();
-    path_vec.insert(0, root_path);
+    let path_vec: Vec<&str> = path.split('/').collect();
 
     // iterate over path_vec looking for marfs internal keywords in the correct structural
     // locations. The mdal-root is structured like /root/MDAL_*/subspaces/MDAL_*/subspaces.
-    for i in 1 .. path_vec.len() {
+    for i in 0 .. path_vec.len() {
         // odd indices 
-        if i % 2 == 1 { 
+        if i % 2 == 0 { 
             if path_vec[i] == "MDAL_datasize" || path_vec[i] == "MDAL_reference" || (path_vec[i] == "MDAL_subspaces" && i == path_vec.len() - 1) {
                 // return true if 
-                return true;
+                return false;
             }
         }
     }
 
-    return false;
+    return true;
 
 }
 
 /// return: empty on error
 pub fn internal_to_user(internal_path: &str) -> String {
-    // validate input with is_internal()
-    String::new()
+    // validate input with is_internal(): paths that return true have no user mapping
+    if filter_internal(internal_path) {
+        println!("filtered internal path");
+        return String::new();
+    }
+
+    let path_vec: Vec<&str> = internal_path.split('/').collect();
+
+    // all internal paths filtered out: just remove MDAL_subspaces to translate to user path
+
+    // maybe add index path? 
+    
+    let ret = path_vec
+        .into_iter()
+        .filter(|s| *s == "MDAL_subspaces")
+        .collect::<Vec<&str>>()
+        .join("/");
+
+    println!("{:?}", ret);
+
+    ret
+
+
 }
 
 /*
