@@ -9,3 +9,4 @@ users = "0.11.0"
 whoami = "2.1.1"
 scoutwrap = { path = "../scoutwrap" }
 highest_change_tree = { path = "../highest_change_tree" }
+marfs_pathman = { path = "../marfs_pathman" }
