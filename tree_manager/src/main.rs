@@ -17,9 +17,9 @@ fn main() {
         ino: 1,
     });
 
-    // input lines should be formatted like path\x00ino
+    // input lines should be formatted like path\t\0ino
     for line in reader.lines() {
-        let line_vec: Vec<String> = line.unwrap().split("\x00").map(|s| s.to_string()).collect();
+        let line_vec: Vec<String> = line.unwrap().split("\t\0").map(|s| s.to_string()).collect();
 
         if line_vec.len() != 2 {
             panic!("malformed input: line does not contain exactly one null separator");
@@ -61,7 +61,7 @@ fn main() {
     ChangeTree::parse_leaves(&tree, &mut parent_list, FS_ROOT_PATH);
 
     for item in parent_list {
-        println!("{}\0{}\0{}", item.tree_data.path, item.tree_data.ino, item.fuse_path);
+        println!("{}\t\0{}\t\0{}", item.tree_data.path, item.tree_data.ino, item.fuse_path);
     }
 
     eprintln!("Finished tree_manager");

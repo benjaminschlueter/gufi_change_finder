@@ -262,7 +262,7 @@ fn main() {
                 }
 
                 // print paths and inodesto stdout and all logs to stderr
-                println!("{}\x00{}", path, entry.ino);
+                println!("{}\t\0{}", path, entry.ino);
 
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
 
