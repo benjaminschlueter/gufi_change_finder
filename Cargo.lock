@@ -582,6 +582,7 @@ dependencies = [
 name = "tree_manager"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "highest_change_tree",
  "marfs_pathman",
 ]

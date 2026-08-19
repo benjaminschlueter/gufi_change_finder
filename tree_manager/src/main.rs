@@ -1,16 +1,19 @@
 use std::io::{self, BufRead};
 use std::process::exit;
 
+use clap::Parser;
+
 use highest_change_tree::*;
 
 fn main() {
+    let args = Args::parse();
+
+    let FS_ROOT_PATH = args.root_scoutfs;
+
     eprintln!("Starting tree_manager");
 
     let stdin = io::stdin();
     let reader = stdin.lock();
-
-    let FS_ROOT_PATH = String::from("/marfs/mdal-root2");
-    let LOOP_VERBOSE = false;
 
     let mut tree = ChangeTree::new(TreeData {
         path: FS_ROOT_PATH.clone(),
@@ -31,9 +34,7 @@ fn main() {
         // handle root directory separately because it has empty path
         // - execution continues after to advance to final state
         if ino == 1 {
-            if LOOP_VERBOSE {
-                println!("INFO\tfilesystem root detected: trimming all nodes below");
-            }
+            println!("INFO\tfilesystem root detected: trimming all nodes below");
 
             ChangeTree::trim_below_root(&mut tree);
 
@@ -61,8 +62,20 @@ fn main() {
     ChangeTree::parse_leaves(&tree, &mut parent_list, FS_ROOT_PATH);
 
     for item in parent_list {
-        println!("{}\t\0{}\t\0{}", item.tree_data.path, item.tree_data.ino, item.fuse_path);
+        println!(
+            "{}\t\0{}\t\0{}",
+            item.tree_data.path, item.tree_data.ino, item.fuse_path
+        );
     }
 
     eprintln!("Finished tree_manager");
+}
+
+/// parent-finder
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Root of ScoutFS filesystem
+    #[arg(short, long)]
+    root_scoutfs: String,
 }

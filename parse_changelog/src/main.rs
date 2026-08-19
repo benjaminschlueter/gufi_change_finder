@@ -344,10 +344,6 @@ struct Args {
     #[arg(short, long)]
     root_scoutfs: String,
 
-    /// Parent directory of output files
-    #[arg(short, long, default_value_t = String::from("./output"))]
-    output_file_dir: String,
-
     /// Quota state file path
     #[arg(short, long)]
     quota_state_file_path: String,
