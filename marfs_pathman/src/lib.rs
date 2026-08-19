@@ -26,17 +26,18 @@ pub fn filter_internal(path: &str) -> bool {
 /// return: empty on error
 pub fn internal_to_user(internal_path: &str) -> String {
 
-    let path_vec: Vec<&str> = internal_path.split('/').collect();
+    let fuse_path = "/marfs";
+    let mut path_vec: Vec<&str> = internal_path.split('/').collect();
+    path_vec.insert(0, fuse_path);
 
     // all internal paths filtered out: just remove MDAL_subspaces to translate to user path
 
-    // maybe add index path? 
-    
     path_vec
         .into_iter()
-        .filter(|s| *s == "MDAL_subspaces")
+        .filter(|s| *s != "MDAL_subspaces")
         .collect::<Vec<&str>>()
         .join("/")
+
 }
 
 /*

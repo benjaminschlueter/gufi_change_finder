@@ -364,12 +364,15 @@ fn main() {
         return;
     }
 
-    let mut parent_list: Vec<TreeData> = Vec::new();
+    let mut parent_list: Vec<OutputListData> = Vec::new();
 
     if root_scanned {
-        parent_list.push(TreeData {
-            path: FS_ROOT_PATH.clone(),
-            ino: 1,
+        parent_list.push(OutputListData {
+            tree_data: TreeData {
+                path: FS_ROOT_PATH.clone(),
+                ino: 1,
+            },
+            fuse_path: marfs_pathman::internal_to_user(&FS_ROOT_PATH),
         });
     }
 
@@ -391,7 +394,7 @@ fn main() {
 
     for item in &parent_list {
         // terminate with null byte to protect issues with weird user paths
-        writeln!(writer, "{}\0,{}", item.path, item.ino)
+        writeln!(writer, "{}\0,{}\0,{}", item.tree_data.path, item.tree_data.ino, item.fuse_path)
             .expect("failed to write path to output file");
     }
 
