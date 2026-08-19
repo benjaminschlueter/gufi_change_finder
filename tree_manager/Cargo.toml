@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 highest_change_tree = { path = "../highest_change_tree" } 
+marfs_pathman = { path = "../marfs_pathman" } 

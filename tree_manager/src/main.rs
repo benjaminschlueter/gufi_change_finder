@@ -26,7 +26,7 @@ fn main() {
         }
 
         let path = &line_vec[0];
-        let ino: i64 = line_vec[1].parse().unwrap();
+        let ino: u64 = line_vec[1].parse().unwrap();
 
         eprintln!("path: {path}");
         eprintln!("ino: {ino}");
@@ -45,7 +45,16 @@ fn main() {
             eprintln!("Finished tree_manager");
             exit(0);
         }
-     
+
+        if marfs_pathman::filter_internal(&path) {
+            ChangeTree::add_path(
+                &mut tree,
+                TreeData {
+                    path: path.to_string(),
+                    ino: ino,
+                },
+            );
+        }
     }
 
     eprintln!("Finished tree_manager");
