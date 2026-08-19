@@ -28,9 +28,6 @@ fn main() {
         let path = &line_vec[0];
         let ino: u64 = line_vec[1].parse().unwrap();
 
-        eprintln!("path: {path}");
-        eprintln!("ino: {ino}");
-
         // handle root directory separately because it has empty path
         // - execution continues after to advance to final state
         if ino == 1 {
@@ -55,6 +52,16 @@ fn main() {
                 },
             );
         }
+    }
+
+    // Finished adding to tree
+
+    let mut parent_list: Vec<OutputListData> = Vec::new();
+
+    ChangeTree::parse_leaves(&tree, &mut parent_list, FS_ROOT_PATH);
+
+    for item in parent_list {
+        println!("{}\0{}\0{}", item.tree_data.path, item.tree_data.ino, item.fuse_path);
     }
 
     eprintln!("Finished tree_manager");
