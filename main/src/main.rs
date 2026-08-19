@@ -27,9 +27,11 @@ fn main() {
     let OUTPUT_DIR = args.output_file_dir;
     let QUOTA_STATE_FILE = args.quota_state_file_path;
 
-    let mut starting_major: i64 = 0;
-    let mut starting_ino: i64 = 0;
-    let mut starting_minor: i64 = 0;
+    let mut starting_state = WalkInodesEntry {
+        major: 0,
+        ino: 0,
+        minor: 0,
+    };
 
     // if state file does not exist, create it and start from 0. On all other errors, panic.
     match OpenOptions::new().read(true).open(&STATE_FILE) {
@@ -46,15 +48,15 @@ fn main() {
                 .map(|s| s.to_string())
                 .collect();
 
-            starting_major = input_vec[0]
+            starting_state.major = input_vec[0]
                 .trim()
                 .parse()
                 .expect("state file does not contain valid integer");
-            starting_ino = input_vec[1]
+            starting_state.ino = input_vec[1]
                 .trim()
                 .parse()
                 .expect("state file does not contain valid integer");
-            starting_minor = input_vec[2]
+            starting_state.minor = input_vec[2]
                 .trim()
                 .parse()
                 .expect("state file does not contain valid integer");
@@ -81,9 +83,11 @@ fn main() {
         }
     }
 
-    let quota_major: i64;
-    let quota_ino: i64;
-    let quota_minor: i64;
+    let mut quota_state = WalkInodesEntry {
+        major: 0,
+        ino: 0,
+        minor: 0,
+    };
 
     // read state info from quota to keep tools in sync
     match OpenOptions::new().read(true).open(&QUOTA_STATE_FILE) {
@@ -100,15 +104,15 @@ fn main() {
                 .map(|s| s.to_string())
                 .collect();
 
-            quota_major = input_vec[0]
+            quota_state.major = input_vec[0]
                 .trim()
                 .parse()
                 .expect("quota state file does not contain valid integer");
-            quota_ino = input_vec[1]
+            quota_state.ino = input_vec[1]
                 .trim()
                 .parse()
                 .expect("quota state file does not contain valid integer");
-            quota_minor = input_vec[2]
+            quota_state.minor = input_vec[2]
                 .trim()
                 .parse()
                 .expect("quota state file does not contain valid integer");
@@ -120,7 +124,10 @@ fn main() {
     }
 
     if STATE_VERBOSE {
-        println!("INFO\tdetected quota state ({quota_major}, {quota_ino}, {quota_minor})");
+        println!(
+            "INFO\tdetected quota state ({}, {}, {})",
+            quota_state.major, quota_state.ino, quota_state.minor
+        );
     }
 
     // open fd for filesystem root
@@ -135,13 +142,9 @@ fn main() {
 
     // setup walk_inodes struct
 
-    let first = scoutwrap::WalkInodesEntry {
-        major: starting_major as u64,
-        ino: starting_ino as u64,
-        minor: starting_minor as u32,
-    };
+    let first = starting_state;
 
-    let last = scoutwrap::WalkInodesEntry {
+    let last = WalkInodesEntry {
         major: std::u64::MAX,
         ino: std::u64::MAX,
         minor: std::u32::MAX,
@@ -155,9 +158,11 @@ fn main() {
         index: 0,
     };
 
-    let mut final_major = 0;
-    let mut final_ino = 0;
-    let mut final_minor = 0;
+    let mut final_state = WalkInodesEntry {
+        major: 0,
+        ino: 0,
+        minor: 0,
+    };
 
     // create HashMap and tree
     let mut tree = ChangeTree::new(TreeData {
@@ -170,7 +175,7 @@ fn main() {
     if STATE_VERBOSE {
         println!(
             "Running gufi_change_finder with starting state (major: {}, ino: {}, minor: {})",
-            starting_major, starting_ino, starting_minor
+            starting_state.major, starting_state.ino, starting_state.minor
         );
     }
 
@@ -200,14 +205,16 @@ fn main() {
                 break;
             }
 
+            /*
             let major = entry.major;
             let ino = entry.ino;
             let minor = entry.minor;
+            */
 
             // skip entry if it matches the starting values: it was processed in the last execution
-            if major == starting_major as u64
-                && ino == starting_ino as u64
-                && minor == starting_minor as u32
+            if entry.major == starting_state.major
+                && entry.ino == starting_state.ino
+                && entry.minor == starting_state.minor
             {
                 if LOOP_VERBOSE {
                     println!("skipping starting value");
@@ -217,7 +224,7 @@ fn main() {
             }
 
             // stop if we are going to get ahead of quota_update
-            if major >= quota_major as u64 && minor >= quota_minor as u32 {
+            if entry.major >= quota_state.major as u64 && entry.minor >= quota_state.minor as u32 {
                 if STATE_VERBOSE || LOOP_VERBOSE {
                     println!("INFO\treached quota state: stopping here");
                 }
@@ -228,7 +235,7 @@ fn main() {
             }
 
             let mut ino_path_arg = scoutwrap::InoPath {
-                ino: ino,
+                ino: entry.ino,
                 dir_ino: 0,
                 dir_pos: 0,
                 result_ptr: 0,
@@ -261,7 +268,7 @@ fn main() {
                             // this case now happens every inode on the final loop iteration
                             break;
                         } else {
-                            panic!("scoutwrap::ino_path: {} on inode {}", e, ino);
+                            panic!("scoutwrap::ino_path: {} on inode {}", e, entry.ino);
                         }
                     }
                 }
@@ -269,7 +276,7 @@ fn main() {
 
             // handle root directory separately because it has empty path
             // - execution continues after to advance to final state
-            if ino == 1 {
+            if entry.ino == 1 {
                 if LOOP_VERBOSE {
                     println!("INFO\tfilesystem root detected: trimming all nodes below");
                 }
@@ -278,18 +285,22 @@ fn main() {
 
                 root_scanned = true;
 
-                final_major = major;
-                final_ino = ino;
-                final_minor = minor;
+                final_state = WalkInodesEntry {
+                    major: entry.major,
+                    ino: entry.ino,
+                    minor: entry.minor,
+                };
 
                 continue;
             }
 
             // if root has been scanned, update state values and move on to minimize work
             if root_scanned {
-                final_major = major;
-                final_ino = ino;
-                final_minor = minor;
+                final_state = WalkInodesEntry {
+                    major: entry.major,
+                    ino: entry.ino,
+                    minor: entry.minor,
+                };
 
                 continue;
             }
@@ -297,7 +308,7 @@ fn main() {
             // handle all paths to inode from hard links
             for path in ino_path_vec {
                 if LOOP_VERBOSE {
-                    println!("INFO\tprocessing\tinode: {}\tpath: {}", ino, path);
+                    println!("INFO\tprocessing\tinode: {}\tpath: {}", entry.ino, path);
                 }
 
                 if marfs_pathman::filter_internal(&path) {
@@ -305,23 +316,25 @@ fn main() {
                         &mut tree,
                         TreeData {
                             path: path,
-                            ino: ino,
+                            ino: entry.ino,
                         },
                     );
                 }
 
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
 
-                final_major = major;
-                final_ino = ino;
-                final_minor = minor;
+                final_state = WalkInodesEntry {
+                    major: entry.major,
+                    ino: entry.ino,
+                    minor: entry.minor,
+                };
             } // end ino_path_vec loop
         }
 
         // save state on last batch or every CHECKPOINT_MS
         if last_batch {
             // update state file with final state
-            if final_major != starting_major as u64 && final_major != 0 {
+            if final_state.major != starting_state.major as u64 && final_state.major != 0 {
                 let mut new_state_file = OpenOptions::new()
                     .write(true)
                     .create(true)
@@ -330,9 +343,9 @@ fn main() {
 
                 let write_str = format!(
                     "{}\n{}\n{}",
-                    final_major.to_string(),
-                    final_ino.to_string(),
-                    final_minor.to_string()
+                    final_state.major.to_string(),
+                    final_state.ino.to_string(),
+                    final_state.minor.to_string()
                 );
 
                 if let Err(e) = new_state_file.write_all(write_str.as_bytes()) {
@@ -352,12 +365,12 @@ fn main() {
 
     // don't bother with a parent list and output file if nothing changed
 
-    if final_major == 0 && final_ino == 0 && final_minor == 0 {
+    if final_state.major == 0 && final_state.ino == 0 && final_state.minor == 0 {
         if STATE_VERBOSE {
             println!("INFO\tno changes detected");
             println!(
                 "Finished gufi_change_finder at final state (major: {}, ino: {}, minor: {})",
-                starting_major, starting_ino, starting_minor
+                starting_state.major, starting_state.ino, starting_state.minor
             );
         }
 
@@ -382,8 +395,11 @@ fn main() {
 
     std::fs::create_dir_all(&OUTPUT_DIR).expect("failed to create output directory");
 
-    let output_file_name =
-        format!("{OUTPUT_DIR}/gufi_change_finder.out.{final_major}.{final_ino}.{final_minor}");
+    let output_file_name = format!(
+        "{OUTPUT_DIR}/gufi_change_finder.out.{}.{}.{}",
+        final_state.major, final_state.ino, final_state.minor
+    );
+
     let output_file = OpenOptions::new()
         .create(true)
         .write(true)
@@ -394,8 +410,12 @@ fn main() {
 
     for item in &parent_list {
         // terminate with null byte to protect issues with weird user paths
-        write!(writer, "{}\0{}\0{}", item.tree_data.path, item.tree_data.ino, item.fuse_path)
-            .expect("failed to write path to output file");
+        write!(
+            writer,
+            "{}\0{}\0{}",
+            item.tree_data.path, item.tree_data.ino, item.fuse_path
+        )
+        .expect("failed to write path to output file");
     }
 
     // debug print tree for development
@@ -404,7 +424,7 @@ fn main() {
     if STATE_VERBOSE {
         println!(
             "Finished gufi_change_finder at final state (major: {}, ino: {}, minor: {})",
-            final_major, final_ino, final_minor
+            final_state.major, final_state.ino, final_state.minor
         );
     }
 }
