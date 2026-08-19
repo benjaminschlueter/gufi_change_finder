@@ -15,7 +15,7 @@ fn main() {
     if users::get_current_uid() != 0 {
         panic!("Must run as root!");
     }
-    
+
     let args = Args::parse();
 
     let BATCH_SIZE = args.batch_size;
@@ -299,7 +299,7 @@ fn main() {
                 if LOOP_VERBOSE {
                     println!("INFO\tprocessing\tinode: {}\tpath: {}", ino, path);
                 }
-                
+
                 if marfs_pathman::filter_internal(&path) {
                     ChangeTree::add_path(
                         &mut tree,

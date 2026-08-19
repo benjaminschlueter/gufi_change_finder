@@ -13,7 +13,7 @@ pub fn filter_internal(path: &str) -> bool {
         // odd indices 
         if i % 2 == 0 { 
             if path_vec[i] == "MDAL_datasize" || path_vec[i] == "MDAL_reference" || (path_vec[i] == "MDAL_subspaces" && i == path_vec.len() - 1) {
-                // return true if 
+                // return false if this is an internal path
                 return false;
             }
         }
@@ -25,11 +25,6 @@ pub fn filter_internal(path: &str) -> bool {
 
 /// return: empty on error
 pub fn internal_to_user(internal_path: &str) -> String {
-    // validate input with is_internal(): paths that return true have no user mapping
-    if filter_internal(internal_path) {
-        println!("filtered internal path");
-        return String::new();
-    }
 
     let path_vec: Vec<&str> = internal_path.split('/').collect();
 
@@ -37,17 +32,11 @@ pub fn internal_to_user(internal_path: &str) -> String {
 
     // maybe add index path? 
     
-    let ret = path_vec
+    path_vec
         .into_iter()
         .filter(|s| *s == "MDAL_subspaces")
         .collect::<Vec<&str>>()
-        .join("/");
-
-    println!("{:?}", ret);
-
-    ret
-
-
+        .join("/")
 }
 
 /*

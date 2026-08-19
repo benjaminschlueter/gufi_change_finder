@@ -33,7 +33,6 @@ pub struct ChangeTree {
 }
 
 impl ChangeTree {
-
     /// Create a new ChangeTree. Allocates Arena and sets root node.
     pub fn new(root: TreeData) -> Self {
         let mut arena = Arena::new();
@@ -43,19 +42,14 @@ impl ChangeTree {
     }
 
     ///The full process of adding a node with a path to the tree and trimming when necessary.
-    pub fn add_path(
-        tree: &mut ChangeTree,
-        data: TreeData
-    ) {
-        let mut path_vec: Vec<&str> = data.path.split('/').collect();
-        let tree_root_path = tree.arena[tree.root].get().path.clone();
-        path_vec.insert(0, &tree_root_path); // path_vec must be length 2 or greater
+    pub fn add_path(tree: &mut ChangeTree, data: TreeData) {
+        let path_vec: Vec<&str> = data.path.split('/').collect();
 
         let mut cur_node = tree.root;
         let mut child;
         let path_vec_last = path_vec[path_vec.len() - 1];
 
-        for entry in &path_vec[1..] {
+        for entry in &path_vec {
             // skip tree_root path_vec entry
 
             // check if cur_node has child named entry
@@ -72,12 +66,10 @@ impl ChangeTree {
             }
             // node not found: add it
             else {
-                child = tree.arena.new_node(
-                    TreeData {
-                        path: entry.to_string(),
-                        ino: data.ino,
-                    }
-                );
+                child = tree.arena.new_node(TreeData {
+                    path: entry.to_string(),
+                    ino: data.ino,
+                });
 
                 // add new child to cur_node
                 cur_node.append(child, &mut tree.arena);
@@ -108,7 +100,7 @@ impl ChangeTree {
         }
     }
 
-    /// Trims all nodes below node with NodeId. A helper for add_path. 
+    /// Trims all nodes below node with NodeId. A helper for add_path.
     fn trim_below(tree: &mut ChangeTree, node: NodeId) {
         let children: Vec<NodeId> = node.children(&tree.arena).collect();
 
@@ -116,7 +108,7 @@ impl ChangeTree {
             c.remove_subtree(&mut tree.arena);
         }
     }
-    
+
     /// Trims all nodes below the root. This function is public so the caller can trim below the
     /// root in the case where it is found.
     pub fn trim_below_root(tree: &mut ChangeTree) {
@@ -127,14 +119,9 @@ impl ChangeTree {
         }
     }
     /// This recursive function traverses the tree to the leaves and adds them to a vector for output.
-    pub fn parse_leaves(
-        &self,
-        parent_list: &mut Vec<TreeData>,
-        partial_path: String,
-    ) {
+    pub fn parse_leaves(&self, parent_list: &mut Vec<TreeData>, partial_path: String) {
         self.parse_leaves_inner(self.root, parent_list, partial_path);
-    }   
-
+    }
 
     fn parse_leaves_inner(
         &self,
@@ -142,30 +129,36 @@ impl ChangeTree {
         parent_list: &mut Vec<TreeData>,
         partial_path: String,
     ) {
-     
         for child in node.children(&self.arena) {
-            let partial_path_new = format!("{}/{}", partial_path, self.arena[child].get().path);
+            let mut partial_path_new = format!("{}/{}", partial_path, self.arena[child].get().path);
 
+            // base case: leaf node
             if self.arena[child].first_child().is_none() {
-                // leaf: add new TreeData with abs path instead of relative and inode
+                let is_file = fs::metadata(&partial_path_new)
+                    .expect(&format!("failed to stat {}", &partial_path_new))
+                    .is_file();
 
-                // stat to determine if file and parent needs to be added instead (could do some tree
-                // child scan optimization here: if other files belong to this parent, skip those
-                // files)
-                
-
-                println!("{}", &partial_path_new);
-                if fs::metadata(&partial_path_new).expect(&format!("failed to stat {}", &partial_path_new)).is_file() {
-                    println!("file: {}", &partial_path_new);
+                if is_file {
+                    // if this is a file, add the parent instead
+                    partial_path_new = partial_path.clone();
                 }
-                
-                // generate FUSE path from tree reference path and add that to list as well 
-                let fuse_path = marfs_pathman::internal_to_user(&partial_path_new);
+
+                // generate FUSE path from tree reference path and add that to list as well
+                let fuse_path = marfs_pathman::internal_to_user(
+                    &partial_path_new
+                        .strip_prefix(&format!("{}/", self.arena[self.root].get().path))
+                        .expect("failed to remove root path prefix"),
+                );
 
                 parent_list.push(TreeData {
                     path: partial_path_new,
                     ino: self.arena[child].get().ino,
                 });
+
+                if is_file {
+                    // no need to trim children, just move on to the next node after parent
+                    break;
+                }
 
                 continue;
             }
@@ -174,5 +167,4 @@ impl ChangeTree {
             Self::parse_leaves_inner(self, child, parent_list, partial_path_new);
         }
     }
-
 }
