@@ -257,8 +257,8 @@ fn main() {
                     eprintln!("INFO\tprocessing\tinode: {}\tpath: {}", ino, path);
                 }
                 
-                // print paths to stdout and all logs to stderr
-                println!("{}", path);
+                // print paths and inodesto stdout and all logs to stderr
+                println!("{}\x00{}", path, ino);
                             
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
 
