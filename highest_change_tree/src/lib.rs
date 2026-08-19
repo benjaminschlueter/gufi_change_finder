@@ -17,6 +17,7 @@
 
 use indextree::{Arena, NodeId};
 use std::fs;
+use std::collections::HashMap;
 
 const MAX_CHILD_COUNT: usize = 1024; // if a node has more than this many children, give up adding more and rescan the whole parent dir
 
@@ -118,9 +119,11 @@ impl ChangeTree {
             c.remove_subtree(&mut tree.arena);
         }
     }
+
     /// This recursive function traverses the tree to the leaves and adds them to a vector for output.
     pub fn parse_leaves(&self, parent_list: &mut Vec<TreeData>, partial_path: String) {
-        self.parse_leaves_inner(self.root, parent_list, partial_path);
+        let mut added_parent_cache = HashMap::new();
+        self.parse_leaves_inner(self.root, parent_list, partial_path, &mut added_parent_cache);
     }
 
     fn parse_leaves_inner(
@@ -128,43 +131,47 @@ impl ChangeTree {
         node: NodeId,
         parent_list: &mut Vec<TreeData>,
         partial_path: String,
+        added_parent_cache: &mut HashMap<String, ()>,
     ) {
         for child in node.children(&self.arena) {
             let mut partial_path_new = format!("{}/{}", partial_path, self.arena[child].get().path);
-
+            
             // base case: leaf node
             if self.arena[child].first_child().is_none() {
+                
                 let is_file = fs::metadata(&partial_path_new)
                     .expect(&format!("failed to stat {}", &partial_path_new))
                     .is_file();
 
                 if is_file {
-                    // if this is a file, add the parent instead
+                    // add parent instead
                     partial_path_new = partial_path.clone();
                 }
-
-                // generate FUSE path from tree reference path and add that to list as well
+   
+                // generate FUSE path from tree reference path 
                 let fuse_path = marfs_pathman::internal_to_user(
                     &partial_path_new
                         .strip_prefix(&format!("{}/", self.arena[self.root].get().path))
                         .expect("failed to remove root path prefix"),
                 );
-
-                parent_list.push(TreeData {
-                    path: partial_path_new,
-                    ino: self.arena[child].get().ino,
-                });
-
+               
+                // add to parent_list if this path was not previously added
+                if !added_parent_cache.contains_key(&partial_path_new) {
+                    parent_list.push(TreeData {
+                        path: partial_path_new,
+                        ino: self.arena[child].get().ino,
+                    });
+                }
+                
                 if is_file {
-                    // no need to trim children, just move on to the next node after parent
-                    break;
+                    added_parent_cache.insert(partial_path.clone(), ()); // no data needed, just using this for efficient lookup
                 }
 
                 continue;
             }
 
             // node: extend path and keep recursing
-            Self::parse_leaves_inner(self, child, parent_list, partial_path_new);
+            Self::parse_leaves_inner(self, child, parent_list, partial_path_new, added_parent_cache);
         }
     }
 }
