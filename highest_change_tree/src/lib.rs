@@ -144,10 +144,12 @@ impl ChangeTree {
         partial_path: String,
         added_parent_cache: &mut HashMap<String, ()>,
     ) {
-        for child in node.children(&self.arena) {
-            let mut partial_path_new = format!("{}/{}", partial_path, self.arena[child].get().path);
 
-            // base case: leaf node
+        let mut partial_path_new = format!("{}/{}", partial_path, self.arena[child].get().path);
+
+        // process all children before descending
+        for child in node.children(&self.arena) {
+            
             if self.arena[child].first_child().is_none() {
                 let is_file = fs::metadata(&partial_path_new)
                     .expect(&format!("failed to stat {}", &partial_path_new))
@@ -164,24 +166,27 @@ impl ChangeTree {
                         .strip_prefix(&format!("{}/", self.arena[self.root].get().path))
                         .expect("failed to remove root path prefix"),
                 );
+                
+                // add leaf directories and parents of files
+                parent_list.push(OutputListData {
+                    tree_data: TreeData {
+                        path: partial_path_new.clone(),
+                        ino: self.arena[child].get().ino,
+                    },
+                    fuse_path: fuse_path,
+                });
 
-                // add to parent_list if this path was not previously added
-                if !added_parent_cache.contains_key(&partial_path_new) {
-                    parent_list.push(OutputListData {
-                        tree_data: TreeData {
-                            path: partial_path_new.clone(),
-                            ino: self.arena[child].get().ino,
-                        },
-                        fuse_path: fuse_path,
-                    });
-                }
-
+                // if a file is found and the parent is added, no need to keep processing children
                 if is_file {
-                    added_parent_cache.insert(partial_path.clone(), ()); // no data needed, just using this for efficient lookup
+                    return;
                 }
-
-                continue;
+                
             }
+
+        }
+
+        // descend to next level after leaves are processed
+        for child in node.children(&self.arena) {
 
             // node: extend path and keep recursing
             Self::parse_leaves_inner(
