@@ -16,7 +16,6 @@
 //! This function traverses the tree recursively and adds leaves to a vector that will be returned.
 
 use indextree::{Arena, NodeId};
-use std::collections::HashMap;
 use std::fs;
 
 const MAX_CHILD_COUNT: usize = 1024; // if a node has more than this many children, give up adding more and rescan the whole parent dir
@@ -128,13 +127,7 @@ impl ChangeTree {
 
     /// This recursive function traverses the tree to the leaves and adds them to a vector for output.
     pub fn parse_leaves(&self, parent_list: &mut Vec<OutputListData>, partial_path: String) {
-        let mut added_parent_cache = HashMap::new();
-        self.parse_leaves_inner(
-            self.root,
-            parent_list,
-            partial_path,
-            &mut added_parent_cache,
-        );
+        self.parse_leaves_inner(self.root, parent_list, partial_path);
     }
 
     fn parse_leaves_inner(
@@ -142,14 +135,11 @@ impl ChangeTree {
         node: NodeId,
         parent_list: &mut Vec<OutputListData>,
         partial_path: String,
-        added_parent_cache: &mut HashMap<String, ()>,
     ) {
-
-        let mut partial_path_new = format!("{}/{}", partial_path, self.arena[child].get().path);
-
         // process all children before descending
         for child in node.children(&self.arena) {
-            
+            let mut partial_path_new = format!("{}/{}", partial_path, self.arena[child].get().path);
+
             if self.arena[child].first_child().is_none() {
                 let is_file = fs::metadata(&partial_path_new)
                     .expect(&format!("failed to stat {}", &partial_path_new))
@@ -166,7 +156,7 @@ impl ChangeTree {
                         .strip_prefix(&format!("{}/", self.arena[self.root].get().path))
                         .expect("failed to remove root path prefix"),
                 );
-                
+
                 // add leaf directories and parents of files
                 parent_list.push(OutputListData {
                     tree_data: TreeData {
@@ -180,22 +170,15 @@ impl ChangeTree {
                 if is_file {
                     return;
                 }
-                
             }
-
         }
 
         // descend to next level after leaves are processed
         for child in node.children(&self.arena) {
+            let partial_path_new = format!("{}/{}", partial_path, self.arena[child].get().path);
 
             // node: extend path and keep recursing
-            Self::parse_leaves_inner(
-                self,
-                child,
-                parent_list,
-                partial_path_new,
-                added_parent_cache,
-            );
+            Self::parse_leaves_inner(self, child, parent_list, partial_path_new);
         }
     }
 }
