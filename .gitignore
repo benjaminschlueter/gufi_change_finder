@@ -3,6 +3,7 @@
 /output
 /log
 /run
+/run-reindexer
 /scoutwrap/src/scoutfs
 /scoutwrap/src/scoutwrap/libscoutwrap.a
 /scripts

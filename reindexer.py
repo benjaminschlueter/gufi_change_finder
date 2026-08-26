@@ -32,8 +32,13 @@ if len(output_file_list) == 0:
     print("output directory is empty... exiting:")
     exit()
 
+# check for GUFI commands in path, if GUFI_PATH not specified (shutil) 
+
 result = subprocess.run(["mkdir", "-p", WORK_REINDEX_DIR], check=True)
 result = subprocess.run(["mkdir", "-p", WORK_OLD_DIR], check=True)
+
+os.environ["MARFS_SEC_ROOT"] = "/var/marfs/mdal-root/sec-root"
+os.environ["MARFS_CONFIG_PATH"] = "/opt/storage/marfs/install/etc/marfs-config.xml"
 
 # iterate over all files in output directory
 for file in output_file_list:
@@ -42,26 +47,28 @@ for file in output_file_list:
     with open(f"{GCF_OUTPUT_DIR}/{file}") as f:
         lines = f.readlines()        
 
+    paths = []
+
     # Gufi Change Finder outputs inode too: drop that part of the string    
-    for i in range(len(lines)):
-        lines[i] = lines[i].split('\x00')[0]
+    for line in lines:
+        paths.append((line.split('\x00')[0], line.split('\x00')[2]))
 
-    # generate new GUFI index for each path
-    for path in lines:
-        parent_path_list = path.split('/')[:-1]
-        parent_path = "/".join(parent_path_list)
+    # Generate new GUFI index for each path
+    # Guranteed to received directories and namespaces with valid user mappings
+    for path in paths:
+        print(f"reindexing {path[0]}")
 
-        # if path is a file, reindex the parent dir
-        st = os.stat(path)
-        if stat.S_ISDIR(st.st_mode):
-            path = parent_path
+        parent_fuse_path_split = path[1].split('/')[:-1]
+        parent_fuse_path = "/".join(parent_fuse_path_split)
         
-        print(f"reindexing {path}")
+        print(f"parent_fuse_path: {parent_fuse_path}")
 
-        result = subprocess.run(["mkdir", "-p", f"{WORK_REINDEX_DIR}{parent_path}"], check=True)
+        #result = subprocess.run(["mkdir", "-p", f"{WORK_REINDEX_DIR}{parent_fuse_path}"], check=True)
         
-        # won't generate anything for files
-        result = subprocess.run([f"{GUFI_PATH}/src/gufi_dir2index", "--thread", str(THREAD_COUNT), path, f"{WORK_REINDEX_DIR}{parent_path}"], check=True)
+        # call gufi_dir2index with MarFS plugin
+        result = subprocess.run([f"{GUFI_PATH}/src/gufi_dir2index", "-x", "--threads", str(THREAD_COUNT),  "--plugin", f"GUFI_MARFS_PLUGIN:{GUFI_PATH}/contrib/plugins/libmarfs_plugin.so", path[0], f"{WORK_REINDEX_DIR}{parent_fuse_path}"], cwd=GUFI_PATH, check=True) 
+
+    exit()
 
     for path in lines:
         parent_path_list = path.split('/')[:-1]
