@@ -394,7 +394,7 @@ fn main() {
 
     for item in &parent_list {
         // terminate with null byte to protect issues with weird user paths
-        writeln!(writer, "{}\0,{}\0,{}", item.tree_data.path, item.tree_data.ino, item.fuse_path)
+        write!(writer, "{}\0{}\0{}", item.tree_data.path, item.tree_data.ino, item.fuse_path)
             .expect("failed to write path to output file");
     }
 
