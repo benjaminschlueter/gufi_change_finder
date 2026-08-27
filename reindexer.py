@@ -31,17 +31,18 @@ GCF_OUTPUT_DIR=args.output_file_dir
 WORK_REINDEX_DIR=f"{args.workdir}/reindex"
 WORK_OLD_DIR=f"{args.workdir}/old"
 
-tree_root_paths = ["/marfs/mdal-root/parent-testing"]
-
 output_file_list = os.listdir(GCF_OUTPUT_DIR)
 
 if len(output_file_list) == 0:
-    print("output directory is empty... exiting:")
+    print("output directory is empty: exiting")
     exit()
 
 # check for GUFI commands in path, if GUFI_PATH not specified (shutil) 
 
 result = subprocess.run(["mkdir", "-p", WORK_REINDEX_DIR], check=True)
+
+# if WORK_OLD_DIR has unremoved contents, remove them before beginning
+result = subprocess.run(["rm", "-rf", f"{WORK_OLD_DIR}"])
 result = subprocess.run(["mkdir", "-p", WORK_OLD_DIR], check=True)
 
 os.environ["MARFS_SEC_ROOT"] = "/var/marfs/mdal-root/sec-root"
@@ -49,7 +50,7 @@ os.environ["MARFS_CONFIG_PATH"] = "/opt/storage/marfs/install/etc/marfs-config.x
 
 # iterate over all files in output directory
 for file in output_file_list:
-    print(f"processing {file}")
+    print(f"Processing {file}")
 
     with open(f"{GCF_OUTPUT_DIR}/{file}") as f:
         lines = f.readlines()        
@@ -63,19 +64,20 @@ for file in output_file_list:
         # path[1]: FUSE path with MarFS internals removed
         paths.append((line.split('\x00')[0], line.split('\x00')[2]))
 
+
     # Generate new GUFI index for each path
     # Guranteed to received directories and namespaces with valid user mappings
     for path in paths:
-        print(f"reindexing {path[0]}")
+        print(f"Reindexing {path[0]}")
 
         parent_fuse_path_split = path[1].split('/')[:-1]
         parent_fuse_path = "/".join(parent_fuse_path_split)
         
         # call gufi_dir2index with MarFS plugin
-        result = subprocess.run([f"{GUFI_PATH}/src/gufi_dir2index", "-x", "--threads", str(THREAD_COUNT),  "--plugin", f"GUFI_MARFS_PLUGIN:{GUFI_PATH}/contrib/plugins/libmarfs_plugin.so", path[0], f"{WORK_REINDEX_DIR}{parent_fuse_path}"], check=True) 
+        result = subprocess.run([f"{GUFI_PATH}/src/gufi_dir2index", "-x", "--threads", str(THREAD_COUNT),  "--plugin", f"GUFI_MARFS_PLUGIN:{GUFI_PATH}/contrib/plugins/libmarfs_plugin.so", path[0], f"{WORK_REINDEX_DIR}{parent_fuse_path}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True) 
 
     for path in paths:
-        print(f"pivoting {path[1]}")
+        print(f"Pivoting {path[1]}")
         
         parent_fuse_path_split = path[1].split('/')[:-1]
         parent_fuse_path = "/".join(parent_fuse_path_split)
@@ -104,6 +106,7 @@ for file in output_file_list:
         rm_threads.append(thread)
         thread.start()
                 
+
     # wait until all rm threads finish and remove all residual tree structure in old dir
     for thread in rm_threads:
         thread.join()
@@ -112,11 +115,10 @@ for file in output_file_list:
     result = subprocess.run(["rm", "-rf", f"{WORK_OLD_DIR}"], check=True)
     result = subprocess.run(["mkdir", "-p", WORK_OLD_DIR], check=True)
 
-    print(f"regenerating treesummaries after processing {file}")
-    result = subprocess.run([f"{GUFI_PATH}/src/gufi_treesummary_all", GUFI_INDEX_DIR], check=True)
+    print(f"Regenerating treesummaries after processing {file}")
+    result = subprocess.run([f"{GUFI_PATH}/src/gufi_treesummary_all", GUFI_INDEX_DIR], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
     
-    # os.remove(f"{GCF_OUTPUT_DIR}/{file}")
+    os.remove(f"{GCF_OUTPUT_DIR}/{file}")
 
-# move treesummary generation here?
 
 
