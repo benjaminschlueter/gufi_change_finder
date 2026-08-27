@@ -5,10 +5,17 @@ import os
 import stat
 import subprocess
 import argparse
+import threading
 from pathlib import Path
+
+def rm_worker(path):
+    print(f"Starting removal of {path}")
+    result = subprocess.run(["rm", "-rf", path])
+    print(f"Finished removal of {path}")
 
 parser = argparse.ArgumentParser(description="GUFI subtree reindex tool")
 
+parser.add_argument("-g", "--gufi-path", type=str, required=True, help="path to GUFI build dir")
 parser.add_argument("-i", "--index", type=str, required=True, help="path to GUFI tree root")
 parser.add_argument("-w", "--workdir", type=str, default="./reindex_work", help="location of program working directory")
 parser.add_argument("-t", "--threads", type=str, default=32, help="thread count for GUFI processes")
@@ -18,7 +25,7 @@ args = parser.parse_args()
 
 THREAD_COUNT=args.threads
 
-GUFI_PATH="/opt/storage/tmp/GUFI/build"
+GUFI_PATH=args.gufi_path
 GUFI_INDEX_DIR=args.index
 GCF_OUTPUT_DIR=args.output_file_dir
 WORK_REINDEX_DIR=f"{args.workdir}/reindex"
@@ -48,9 +55,12 @@ for file in output_file_list:
         lines = f.readlines()        
 
     paths = []
+    rm_threads = []
 
     # Gufi Change Finder outputs inode too: drop that part of the string    
     for line in lines:
+        # path[0]: MarFS reference path
+        # path[1]: FUSE path with MarFS internals removed
         paths.append((line.split('\x00')[0], line.split('\x00')[2]))
 
     # Generate new GUFI index for each path
@@ -61,38 +71,52 @@ for file in output_file_list:
         parent_fuse_path_split = path[1].split('/')[:-1]
         parent_fuse_path = "/".join(parent_fuse_path_split)
         
-        print(f"parent_fuse_path: {parent_fuse_path}")
-
-        #result = subprocess.run(["mkdir", "-p", f"{WORK_REINDEX_DIR}{parent_fuse_path}"], check=True)
-        
         # call gufi_dir2index with MarFS plugin
-        result = subprocess.run([f"{GUFI_PATH}/src/gufi_dir2index", "-x", "--threads", str(THREAD_COUNT),  "--plugin", f"GUFI_MARFS_PLUGIN:{GUFI_PATH}/contrib/plugins/libmarfs_plugin.so", path[0], f"{WORK_REINDEX_DIR}{parent_fuse_path}"], cwd=GUFI_PATH, check=True) 
+        result = subprocess.run([f"{GUFI_PATH}/src/gufi_dir2index", "-x", "--threads", str(THREAD_COUNT),  "--plugin", f"GUFI_MARFS_PLUGIN:{GUFI_PATH}/contrib/plugins/libmarfs_plugin.so", path[0], f"{WORK_REINDEX_DIR}{parent_fuse_path}"], check=True) 
 
-    exit()
-
-    for path in lines:
-        parent_path_list = path.split('/')[:-1]
-        parent_path = "/".join(parent_path_list)
-
-        print(f"pivoting {path}")
-       
-        result = subprocess.run(["mkdir", "-p", f"{WORK_OLD_DIR}{parent_path}"], check=True) 
-
-        # print(result.stdout)
-
-        result = subprocess.run(["mkdir", "-p", f"{GUFI_INDEX_DIR}{parent_path}"], check=True) 
+    for path in paths:
+        print(f"pivoting {path[1]}")
         
-        # both of these will fail for files to not be pivoted and succeed for dirs
-        result = subprocess.run(["mv", f"{GUFI_INDEX_DIR}{path}", f"{WORK_OLD_DIR}{parent_path}"]) # allowed to fail when the index is being generated for the first time and is not in the GUFI tree yet
-        result = subprocess.run(["mv", f"{WORK_REINDEX_DIR}{path}", f"{GUFI_INDEX_DIR}{path}"], check=True)
-    
-    print(f"regenerating treesummaries after processing {file}")
-    result = subprocess.run([f"{GUFI_PATH}/src/gufi_treesummary_all", GUFI_INDEX_DIR], capture_output=True)
+        parent_fuse_path_split = path[1].split('/')[:-1]
+        parent_fuse_path = "/".join(parent_fuse_path_split)
+       
+        result = subprocess.run(["mkdir", "-p", f"{WORK_OLD_DIR}{parent_fuse_path}"]) 
+        result = subprocess.run(["mkdir", "-p", f"{GUFI_INDEX_DIR}{parent_fuse_path}"]) 
+        
+        # move GUFI tree subdir to working dir
+        # allowed to fail when the index is being generated for the first time and is not in the GUFI tree yet
+        # ADD HANDLER TO PRODUCE WARNING?
+        result = subprocess.run(["mv", f"{GUFI_INDEX_DIR}{path[1]}", f"{WORK_OLD_DIR}{parent_fuse_path}"], stderr=subprocess.PIPE, universal_newlines=True) 
 
-    print("cleaning up working directory")
-    result = subprocess.run(["rm", "-rf", WORK_OLD_DIR])
+        # if this index is not part of the GUFI tree yet, print a warning. On other move errors, fail.
+        if result.returncode == 1:
+            if "No such file or directory" in str(result.stderr):
+                print(f"Warning: {GUFI_INDEX_DIR}{path[1]} does not exist in the GUFI tree")
+            else:
+                print(str(result.stderr).rstrip("\n"))
+                exit()
+
+        # move new reindexed subdir to GUFI tree
+        result = subprocess.run(["mv", f"{WORK_REINDEX_DIR}{path[1]}", f"{GUFI_INDEX_DIR}{parent_fuse_path}"], check=True)
+
+        # spawn a new thread to remove old index: could this spawn too many?
+        thread = threading.Thread(target=rm_worker, args=(f"{WORK_OLD_DIR}{path[1]}",))
+        rm_threads.append(thread)
+        thread.start()
+                
+    # wait until all rm threads finish and remove all residual tree structure in old dir
+    for thread in rm_threads:
+        thread.join()
+
+    print(f"Cleaning up working dir {WORK_OLD_DIR}")
+    result = subprocess.run(["rm", "-rf", f"{WORK_OLD_DIR}"], check=True)
     result = subprocess.run(["mkdir", "-p", WORK_OLD_DIR], check=True)
+
+    print(f"regenerating treesummaries after processing {file}")
+    result = subprocess.run([f"{GUFI_PATH}/src/gufi_treesummary_all", GUFI_INDEX_DIR], check=True)
     
-    os.remove(f"{GCF_OUTPUT_DIR}/{file}")
+    # os.remove(f"{GCF_OUTPUT_DIR}/{file}")
 
 # move treesummary generation here?
+
+
