@@ -34,12 +34,11 @@ fn main() {
         // handle root directory separately because it has empty path
         // - execution continues after to advance to final state
         if ino == 1 {
-            println!("INFO\tfilesystem root detected: trimming all nodes below");
+            eprintln!("INFO\tfilesystem root detected: trimming all nodes below");
 
             ChangeTree::trim_below_root(&mut tree);
 
             // no need to add anything else to the tree, just output the root
-            println!("{}", FS_ROOT_PATH);
             eprintln!("Finished tree_manager");
             exit(0);
         }

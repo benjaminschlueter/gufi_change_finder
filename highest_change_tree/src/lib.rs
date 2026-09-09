@@ -149,7 +149,7 @@ impl ChangeTree {
                     // add parent instead
                     partial_path_new = partial_path.clone();
                 }
-
+                
                 // generate FUSE path from tree reference path
                 let fuse_path = marfs_pathman::internal_to_user(
                     &partial_path_new

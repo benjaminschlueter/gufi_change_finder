@@ -44,11 +44,12 @@ rm_threads = []
 
 # add all paths from stdin to list before executing steps
 for line in sys.stdin:
+    line = line.rstrip('\n')
 
     # Gufi Change Finder outputs inode too: drop that part of the string    
     # path[0]: MarFS reference path
     # path[1]: FUSE path with MarFS internals removed
-    paths.append((line.split('\x00')[0], line.split('\x00')[2]))
+    paths.append((line.split("\t\0")[0], line.split("\t\0")[2]))
 
 
 # Generate new GUFI index for each path
@@ -101,7 +102,7 @@ print(f"Cleaning up working dir {WORK_OLD_DIR}")
 result = subprocess.run(["rm", "-rf", f"{WORK_OLD_DIR}"], check=True)
 result = subprocess.run(["mkdir", "-p", WORK_OLD_DIR], check=True)
 
-print(f"Regenerating treesummaries after processing {file}")
+print(f"Regenerating treesummaries")
 result = subprocess.run([f"{GUFI_PATH}/src/gufi_treesummary_all", GUFI_INDEX_DIR], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
 
