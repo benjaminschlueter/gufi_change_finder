@@ -63,6 +63,7 @@ for path in paths:
     # call gufi_dir2index with MarFS plugin
     result = subprocess.run([f"{GUFI_PATH}/src/gufi_dir2index", "-x", "--threads", str(THREAD_COUNT),  "--plugin", f"GUFI_MARFS_PLUGIN:{GUFI_PATH}/contrib/plugins/libmarfs_plugin.so", path[0], f"{WORK_REINDEX_DIR}{parent_fuse_path}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True) 
 
+
 for path in paths:
     print(f"Pivoting {path[1]}")
     
@@ -103,7 +104,12 @@ result = subprocess.run(["rm", "-rf", f"{WORK_OLD_DIR}"], check=True)
 result = subprocess.run(["mkdir", "-p", WORK_OLD_DIR], check=True)
 
 print(f"Regenerating treesummaries")
-result = subprocess.run([f"{GUFI_PATH}/src/gufi_treesummary_all", GUFI_INDEX_DIR], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+result = subprocess.run([f"{GUFI_PATH}/src/gufi_treesummary_all", GUFI_INDEX_DIR], stdout=subprocess.DEVNULL)
+
+if result.returncode == 1 and not Path(f"{GUFI_INDEX_DIR}/db.db").is_file():
+    print("Error: GUFI tree root contains no db.db")
+    print("The reindexer requires an existing GUFI tree before performing incrementals")
+
 
 
 
