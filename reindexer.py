@@ -32,9 +32,11 @@ WORK_OLD_DIR=f"{args.workdir}/old"
 
 result = subprocess.run(["mkdir", "-p", WORK_REINDEX_DIR], check=True)
 
-# if WORK_OLD_DIR has unremoved contents, remove them before beginning
-result = subprocess.run(["rm", "-rf", f"{WORK_OLD_DIR}"])
+# if WORK_OLD_DIR or WORK_INDEX_DIR  has unremoved contents, remove them before beginning
+result = subprocess.run(["rm", "-rf", f"{WORK_OLD_DIR}"], True)
 result = subprocess.run(["mkdir", "-p", WORK_OLD_DIR], check=True)
+result = subprocess.run(["rm", "-rf", f"{WORK_REINDEX_DIR}"], True)
+result = subprocess.run(["mkdir", "-p", WORK_REINDEX_DIR], check=True)
 
 os.environ["MARFS_SEC_ROOT"] = "/var/marfs/mdal-root/sec-root"
 os.environ["MARFS_CONFIG_PATH"] = "/opt/storage/marfs/install/etc/marfs-config.xml"
@@ -102,6 +104,11 @@ for thread in rm_threads:
 print(f"Cleaning up working dir {WORK_OLD_DIR}")
 result = subprocess.run(["rm", "-rf", f"{WORK_OLD_DIR}"], check=True)
 result = subprocess.run(["mkdir", "-p", WORK_OLD_DIR], check=True)
+
+print(f"Cleaning up working dir {WORK_REINDEX_DIR}")
+result = subprocess.run(["rm", "-rf", f"{WORK_REINDEX_DIR}"], check=True)
+result = subprocess.run(["mkdir", "-p", WORK_REINDEX_DIR], check=True)
+
 
 print(f"Regenerating treesummaries")
 result = subprocess.run([f"{GUFI_PATH}/src/gufi_treesummary_all", GUFI_INDEX_DIR], stdout=subprocess.DEVNULL)
