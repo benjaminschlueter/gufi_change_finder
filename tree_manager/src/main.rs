@@ -9,6 +9,7 @@ fn main() {
     let args = Args::parse();
 
     let FS_ROOT_PATH = args.root_scoutfs;
+    let ENABLE_TRANSLATION = args.translate;
 
     eprintln!("Starting tree_manager");
 
@@ -58,9 +59,25 @@ fn main() {
 
     let mut parent_list: Vec<OutputListData> = Vec::new();
 
-    ChangeTree::parse_leaves(&tree, &mut parent_list, FS_ROOT_PATH);
+    ChangeTree::parse_leaves(&tree, &mut parent_list, FS_ROOT_PATH.clone());
 
-    for item in parent_list {
+    for mut item in parent_list {
+        // generate fuse path here to keep filtering/translation in one place
+        if ENABLE_TRANSLATION {
+            if item.tree_data.path == FS_ROOT_PATH {
+                item.fuse_path = marfs_pathman::internal_to_user("/marfs", "");
+            }
+            else {
+                item.fuse_path = marfs_pathman::internal_to_user("/marfs",
+                    &item.tree_data.path
+                        .strip_prefix(&format!("{FS_ROOT_PATH}/"))
+                        .expect("failed to remove root path prefix"),
+                );
+            }
+        } else {
+            item.fuse_path = item.tree_data.path.clone();
+        }
+
         println!(
             "{}\t\0{}\t\0{}",
             item.tree_data.path, item.tree_data.ino, item.fuse_path
@@ -77,4 +94,9 @@ struct Args {
     /// Root of ScoutFS filesystem
     #[arg(short, long)]
     root_scoutfs: String,
+
+    /// Enable path translation from filesystem internal path to user path. If disabled, output
+    /// path and fuse_path will be the same.
+    #[arg(short, long)]
+    translate: bool,
 }

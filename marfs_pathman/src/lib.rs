@@ -24,11 +24,14 @@ pub fn filter_internal(path: &str) -> bool {
 }
 
 /// return: empty on error
-pub fn internal_to_user(internal_path: &str) -> String {
+pub fn internal_to_user(user_root_path: &str, internal_path: &str) -> String {
 
-    let fuse_path = "/marfs";
+    if internal_path.is_empty() {
+        return user_root_path.to_string();
+    }
+
     let mut path_vec: Vec<&str> = internal_path.split('/').collect();
-    path_vec.insert(0, fuse_path);
+    path_vec.insert(0, user_root_path);
 
     // all internal paths filtered out: just remove MDAL_subspaces to translate to user path
 
