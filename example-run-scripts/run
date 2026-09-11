@@ -1,3 +1,3 @@
-sudo ./target/debug/gufi_change_finder --root-scoutfs /marfs/mdal-root --quota-state-file-path /home/bschlueter/quota_update/.state -s  
-sleep 1
-./reindexer.py -i /index/
+./target/debug/parse_changelog --root-scoutfs /var/marfs/mdal-root/sec-root --quota-state-file-path /opt/storage/quota_update/.state |\
+./target/debug/tree_manager --root-scoutfs /var/marfs/mdal-root/sec-root -t |\
+ python3 /opt/storage/gufi_change_finder/reindexer.py -g /opt/storage/tmp/GUFI/build -i /opt/storage/index/main -w /opt/storage/gufi_change_finder/reindex_work
