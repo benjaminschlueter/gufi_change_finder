@@ -126,7 +126,7 @@ impl ChangeTree {
     }
 
     /// This recursive function traverses the tree to the leaves and adds them to a vector for output.
-    pub fn parse_leaves(&self, parent_list: &mut Vec<OutputListData>, partial_path: String, enable_translation: bool) {
+    pub fn parse_leaves(&self, parent_list: &mut Vec<OutputListData>, partial_path: String) {
         self.parse_leaves_inner(self.root, parent_list, partial_path);
     }
 
@@ -135,7 +135,6 @@ impl ChangeTree {
         node: NodeId,
         parent_list: &mut Vec<OutputListData>,
         partial_path: String,
-        enable_translation: bool,
     ) {
         // process all children before descending
         for child in node.children(&self.arena) {
@@ -152,18 +151,8 @@ impl ChangeTree {
                 }
                 
                 // generate FUSE path from tree reference path
-                let fuse_path;
-                if enable_translation {
-                    fuse_path = marfs_pathman::internal_to_user(
-                        &partial_path_new
-                            .strip_prefix(&format!("{}/", self.arena[self.root].get().path))
-                            .expect("failed to remove root path prefix"),
-                    );
-                }
-                else {
-                    fuse_path = partial_path_new;
-                }
-
+                let fuse_path = String::new();
+               
                 // add leaf directories and parents of files
                 parent_list.push(OutputListData {
                     tree_data: TreeData {
