@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use std::io::{self, BufRead};
 use std::process::exit;
 
