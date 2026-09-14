@@ -23,16 +23,16 @@ fn main() {
     let VERBOSE = args.verbose;
     let FS_ROOT_PATH = args.root_scoutfs;
     let QUOTA_STATE_FILE = args.quota_state_file_path;
-    let VALIDATE_REINDEX = args.validate_reindex.is_some(); 
+    let VALIDATE_REINDEX = args.validate_reindex; 
     let VALIDATE_REINDEX_PATH;
     if VALIDATE_REINDEX {
-        VALIDATE_REINDEX_PATH = args.validate_reindex.unwrap();
+        VALIDATE_REINDEX_PATH = format!("{STATE_FILE}.reindex_validate");
     }
     else {
         VALIDATE_REINDEX_PATH = String::new();
     }
 
-    let starting_state;
+    let mut starting_state;
     match read_state_from_file(&STATE_FILE) {
         Ok(s) => starting_state = s,
         Err(e) => {
@@ -62,7 +62,9 @@ fn main() {
             Ok(s) => {
                 let reindex_validate_state = s;
                 if reindex_validate_state != starting_state {
-                    panic!("reindexer validated state and starting state do not match");
+                    eprintln!("WARNING\treindexer validated state and starting state do not match");
+                    eprintln!("WARNING\trestarting from last validated state");
+                    starting_state = reindex_validate_state;
                 }
             },
             Err(e) => {
@@ -348,5 +350,5 @@ struct Args {
 
     /// Check if the reindexer validated state before proceeding with future batches
     #[arg(long)]
-    validate_reindex: Option<String>,
+    validate_reindex: bool,
 }

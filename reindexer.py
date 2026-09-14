@@ -55,6 +55,7 @@ os.environ["MARFS_CONFIG_PATH"] = "/opt/storage/marfs/install/etc/marfs-config.x
 paths = []
 rm_threads = []
 
+
 # add all paths from stdin to list before executing steps
 for line in sys.stdin:
     line = line.rstrip('\n')
