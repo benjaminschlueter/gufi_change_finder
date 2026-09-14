@@ -27,7 +27,7 @@ pub const MAX_HARDLINKS: usize = 8;
 /// Documentation for the ioctl is in the header file kmod/src/ioctl.h
 
 /// Output of walk_inodes ioctl
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WalkInodesEntry {
     pub major: u64,
     pub ino: u64,

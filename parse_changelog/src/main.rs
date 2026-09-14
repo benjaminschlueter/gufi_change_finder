@@ -20,103 +20,62 @@ fn main() {
     let BATCH_SIZE = args.batch_size;
     let STATE_FILE = args.state_file_path;
     let STATE_SWAP_FILE = format!("{STATE_FILE}.swp");
-    let STATE_VERBOSE = args.state_verbose;
-    let LOOP_VERBOSE = args.loop_verbose;
+    let VERBOSE = args.verbose;
     let FS_ROOT_PATH = args.root_scoutfs;
     let QUOTA_STATE_FILE = args.quota_state_file_path;
-
-    let mut starting_state = WalkInodesEntry {
-        major: 0,
-        ino: 0,
-        minor: 0,
-    };
-
-    // if state file does not exist, create it and start from 0. On all other errors, panic.
-    match OpenOptions::new().read(true).open(&STATE_FILE) {
-        Ok(f) => {
-            let mut reader = BufReader::new(&f);
-            let mut starting_state_str = String::new();
-
-            if let Err(e) = reader.read_to_string(&mut starting_state_str) {
-                panic!("read_to_string: {}", e.to_string());
-            }
-
-            let input_vec: Vec<String> = starting_state_str
-                .split("\n")
-                .map(|s| s.to_string())
-                .collect();
-
-            starting_state.major = input_vec[0]
-                .trim()
-                .parse()
-                .expect("state file does not contain valid integer");
-            starting_state.ino = input_vec[1]
-                .trim()
-                .parse()
-                .expect("state file does not contain valid integer");
-            starting_state.minor = input_vec[2]
-                .trim()
-                .parse()
-                .expect("state file does not contain valid integer");
-        }
-        Err(e) => {
-            if e.kind() == ErrorKind::NotFound {
-                if STATE_VERBOSE {
-                    eprintln!("No state file found: starting at initial state 0");
-                }
-            } else {
-                panic!("open: {}\nFailed to open state file", e.to_string());
-            }
-        }
+    let VALIDATE_REINDEX = args.validate_reindex.is_some(); 
+    let VALIDATE_REINDEX_PATH;
+    if VALIDATE_REINDEX {
+        VALIDATE_REINDEX_PATH = args.validate_reindex.unwrap();
+    }
+    else {
+        VALIDATE_REINDEX_PATH = String::new();
     }
 
+    let starting_state;
+    match read_state_from_file(&STATE_FILE) {
+        Ok(s) => starting_state = s,
+        Err(e) => {
+            eprintln!("{e}");
+            eprintln!("INFO\tstarting from state 0");
+            starting_state = WalkInodesEntry {
+                major: 0,
+                ino: 0,
+                minor: 0,
+            };
+        }
+    }
+    
     // check for existing STATE_SWAP_FILE
     if let Ok(_) = OpenOptions::new().read(true).open(&STATE_SWAP_FILE) {
-        if STATE_VERBOSE {
-            eprintln!("Detected state swp file... removing")
-        }
+        eprintln!("INFO\tdetected state swp file... removing");
 
         if let Err(e) = std::fs::remove_file(Path::new(&STATE_SWAP_FILE)) {
             panic!("failed to remove swp state file: {e}");
         }
     }
-    let mut quota_state = WalkInodesEntry {
-        major: 0,
-        ino: 0,
-        minor: 0,
-    };
 
-    // read state info from quota to keep tools in sync
-    match OpenOptions::new().read(true).open(&QUOTA_STATE_FILE) {
-        Ok(f) => {
-            let mut reader = BufReader::new(&f);
-            let mut starting_state_str = String::new();
-
-            if let Err(e) = reader.read_to_string(&mut starting_state_str) {
-                panic!("read_to_string: {}", e.to_string());
+    // if this is enabled, parse_changelog will read a statefile output by reindexer.py to confirm
+    // reindexer finished properly before proceeding further into the changelog 
+    if VALIDATE_REINDEX {
+        match read_state_from_file(&VALIDATE_REINDEX_PATH) {
+            Ok(s) => {
+                let reindex_validate_state = s;
+                if reindex_validate_state != starting_state {
+                    panic!("reindexer validated state and starting state do not match");
+                }
+            },
+            Err(e) => {
+                panic!("failed to open reindex validation file: {e}");
             }
-
-            let input_vec: Vec<String> = starting_state_str
-                .split("\n")
-                .map(|s| s.to_string())
-                .collect();
-
-            quota_state.major = input_vec[0]
-                .trim()
-                .parse()
-                .expect("quota state file does not contain valid integer");
-            quota_state.ino = input_vec[1]
-                .trim()
-                .parse()
-                .expect("quota state file does not contain valid integer");
-            quota_state.minor = input_vec[2]
-                .trim()
-                .parse()
-                .expect("quota state file does not contain valid integer");
         }
+    }
+    
+    let quota_state;
+    match read_state_from_file(&QUOTA_STATE_FILE) {
+        Ok(s) => quota_state = s,
         Err(e) => {
-            // fatal if no quota state available
-            panic!("open: {}\nFailed to open quota state file", e.to_string());
+            panic!("failed to open quota state file: {e}");
         }
     }
 
@@ -133,6 +92,10 @@ fn main() {
             "open: {}\nFailed to open filesystem root at {}",
             e, &FS_ROOT_PATH
         ),
+    }
+
+    if VERBOSE {
+        eprintln!("INFO\topened filesystem root: {FS_ROOT_PATH}");
     }
 
     // setup walk_inodes struct
@@ -181,6 +144,9 @@ fn main() {
 
         let mut last_batch = false;
         if walk_inodes_arg.entries_vec.len() < BATCH_SIZE {
+            if VERBOSE {
+                eprintln!("last batch detected");
+            }
             last_batch = true;
         }
 
@@ -199,8 +165,8 @@ fn main() {
                 && entry.ino == starting_state.ino as u64
                 && entry.minor == starting_state.minor as u32
             {
-                if LOOP_VERBOSE {
-                    eprintln!("skipping starting value");
+                if VERBOSE {
+                    eprintln!("INFO\tskipping starting value {:?}", entry);
                 }
 
                 continue;
@@ -257,23 +223,18 @@ fn main() {
 
             // handle all paths to inode from hard links
             for path in ino_path_vec {
-                if LOOP_VERBOSE {
-                    eprintln!("INFO\tprocessing\tinode: {}\tpath: {}", entry.ino, path);
-                }
 
-                // print paths and inodesto stdout and all logs to stderr
+                // print inodes and paths to stdout and all logs to stderr
                 println!("{}\t\0{}", path, entry.ino);
 
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
-
-                /*
-                final_state.major = entry.major;
-                final_state.ino = entry.ino;
-                final_state.minor = entry.minor;
-                */
-
+                
                 final_state = entry.clone();
-            } // end ino_path_vec loop
+            } 
+        }
+
+        if VERBOSE {
+            eprintln!("INFO\tfinished batch with current state {:?}", final_state);
         }
 
         // save state on last batch
@@ -320,6 +281,47 @@ fn main() {
     }
 }
 
+fn read_state_from_file(path: &str) -> Result<WalkInodesEntry, String> {
+    match OpenOptions::new().read(true).open(path) {
+        Ok(f) => {
+
+            let mut reader = BufReader::new(&f);
+            let mut starting_state_str = String::new();
+
+            if let Err(e) = reader.read_to_string(&mut starting_state_str) {
+                panic!("read_to_string: {}", e.to_string());
+            }
+
+            let input_vec: Vec<String> = starting_state_str
+                .split("\n")
+                .map(|s| s.to_string())
+                .collect();
+            
+            Ok(WalkInodesEntry {
+                major: input_vec[0]
+                    .trim()
+                    .parse()
+                    .expect("state file does not contain valid integer"),
+                ino: input_vec[1]
+                    .trim()
+                    .parse()
+                    .expect("state file does not contain valid integer"),
+                minor: input_vec[2]
+                    .trim()
+                    .parse()
+                    .expect("state file does not contain valid integer"),
+            })
+        }
+        Err(e) => {
+            if e.kind() == ErrorKind::NotFound {
+                return Err(String::from("file not found: {path}"));
+            } else {
+                panic!("open: {}\nFailed to open file", e.to_string());
+            }
+        }
+    }
+}
+
 /// parent-finder
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -328,13 +330,9 @@ struct Args {
     #[arg(short, long, default_value_t = 65536)]
     batch_size: usize,
 
-    /// Print info on start/final state and state file existence [default: true]
+    /// Print details for each processing step for each file. For debugging purposes
     #[arg(short, long)]
-    state_verbose: bool,
-
-    /// Print details for each processing step for each file. For debugging purposes (lots of output) [default: false]
-    #[arg(short, long)]
-    loop_verbose: bool,
+    verbose: bool,
 
     /// State file path (and state swap file)
     #[arg(short = 'p', long, default_value_t = String::from(".state"))]
@@ -347,4 +345,8 @@ struct Args {
     /// Quota state file path
     #[arg(short, long)]
     quota_state_file_path: String,
+
+    /// Check if the reindexer validated state before proceeding with future batches
+    #[arg(long)]
+    validate_reindex: Option<String>,
 }

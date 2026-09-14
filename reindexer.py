@@ -6,6 +6,7 @@ import stat
 import subprocess
 import argparse
 import threading
+import shutil
 from pathlib import Path
 
 def rm_worker(path):
@@ -19,6 +20,7 @@ parser.add_argument("-g", "--gufi-path", type=str, required=True, help="path to 
 parser.add_argument("-i", "--index", type=str, required=True, help="path to GUFI tree root")
 parser.add_argument("-w", "--workdir", type=str, default="./reindex_work", help="location of program working directory")
 parser.add_argument("-t", "--threads", type=str, default=32, help="thread count for GUFI processes")
+parser.add_argument("--validate-state", type=str, default="", help="path of state file to write a validation for")
 
 args = parser.parse_args()
 
@@ -27,6 +29,15 @@ GUFI_PATH=args.gufi_path
 GUFI_INDEX_DIR=args.index
 WORK_REINDEX_DIR=f"{args.workdir}/reindex"
 WORK_OLD_DIR=f"{args.workdir}/old"
+VALIDATE_STATE=args.validate_state
+VALIDATE_STATE_PATH=""
+if VALIDATE_STATE:
+    VALIDATE_STATE_PATH=args.validate_state
+
+if VALIDATE_STATE:
+    if Path(f"{VALIDATE_STATE_PATH}.reindex_validate.swp").is_file():
+        print("detected reindex_validate swap file, removing")
+        os.remove(f"{VALIDATE_STATE_PATH}.reindex_validate.swp")
 
 # check for GUFI commands in path, if GUFI_PATH not specified (shutil) 
 
@@ -117,7 +128,10 @@ if result.returncode == 1 and not Path(f"{GUFI_INDEX_DIR}/db.db").is_file():
     print("Error: GUFI tree root contains no db.db")
     print("The reindexer requires an existing GUFI tree before performing incrementals")
 
-
-
+# write validation file 
+if VALIDATE_STATE:
+    shutil.copy(VALIDATE_STATE_PATH, f"{VALIDATE_STATE_PATH}.reindex_validate.swp")
+    os.replace(f"{VALIDATE_STATE_PATH}.reindex_validate.swp", f"{VALIDATE_STATE_PATH}.reindex_validate")
+    print(f"wrote state validation file {VALIDATE_STATE_PATH}.reindex_validate")
 
 

@@ -10,3 +10,4 @@
 /reindex_work
 /.cargo
 /vendor
+/.state.reindex_validate
