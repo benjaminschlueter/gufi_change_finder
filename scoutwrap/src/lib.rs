@@ -1,3 +1,8 @@
+//! SEE SCOUTFS GITHUB PAGE FOR IOCTL DOCUMENTATION. THIS CRATE REPLICATES FUNCTIONALITY AS CLOSELY
+//! AS POSSIBLE TO THE ORIGINAL C INTERFACE.
+//!
+//! Documentation for the ioctl is in the header file kmod/src/ioctl.h
+
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
@@ -21,11 +26,6 @@ use std::{mem, slice, str};
 
 pub const STR_BUF_SIZE: usize = 512;
 pub const MAX_HARDLINKS: usize = 8;
-
-/// SEE SCOUTFS GITHUB PAGE FOR IOCTL DOCUMENTATION. THIS CRATE REPLICATES FUNCTIONALITY AS CLOSELY
-/// AS POSSIBLE TO THE ORIGINAL C INTERFACE.
-///
-/// Documentation for the ioctl is in the header file kmod/src/ioctl.h
 
 /// Output of walk_inodes ioctl
 #[derive(Debug, Clone, PartialEq)]
