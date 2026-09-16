@@ -7,7 +7,7 @@
 
 #[allow(unsafe_op_in_unsafe_fn)]
 pub mod bindings {
-        include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
 
 use crate::bindings::*;
@@ -22,7 +22,7 @@ pub const STR_BUF_SIZE: usize = 512;
 pub const MAX_HARDLINKS: usize = 8;
 
 /// SEE SCOUTFS GITHUB PAGE FOR IOCTL DOCUMENTATION. THIS CRATE REPLICATES FUNCTIONALITY AS CLOSELY
-/// AS POSSIBLE TO THE ORIGINAL C INTERFACE. 
+/// AS POSSIBLE TO THE ORIGINAL C INTERFACE.
 ///
 /// Documentation for the ioctl is in the header file kmod/src/ioctl.h
 
@@ -46,10 +46,7 @@ pub struct WalkInodes {
 
 /// Allocates and populates the entries_vec in user_arg to contain nr_entries entry structs from inodes within the minor:major range. This function allocates the buffer. The caller does not have to worry about setting up a buffer.
 /// Moves the callers struct inside, modifies and returns it.
-pub fn walk_inodes(
-    root_fs: &File,
-    mut user_arg: WalkInodes,
-) -> Result<WalkInodes, String> {
+pub fn walk_inodes(root_fs: &File, mut user_arg: WalkInodes) -> Result<WalkInodes, String> {
     // create scoutfs_ioctl_walk_inodes and entries structs
 
     let first_c = scoutfs_ioctl_walk_inodes_entry {
@@ -138,10 +135,7 @@ pub struct InoPathResult {
 }
 
 /// Provides a path for a file with an inode. Paired with walk_inodes to get change log file paths.
-pub fn ino_path(
-    root_fs: &File,
-    path_arg: InoPath,
-) -> Result<InoPathResult, String> {
+pub fn ino_path(root_fs: &File, path_arg: InoPath) -> Result<InoPathResult, String> {
     // ioctl function buffer
     let result_ptr;
     unsafe {
@@ -195,10 +189,7 @@ pub struct ListxattrHidden {
 }
 
 /// Returns a vector of owned string with the names of ScoutFS xattrs attached to a file.
-pub fn listxattr_hidden(
-    fd: BorrowedFd,
-    xattr_arg: ListxattrHidden,
-) -> Result<Vec<String>, String> {
+pub fn listxattr_hidden(fd: BorrowedFd, xattr_arg: ListxattrHidden) -> Result<Vec<String>, String> {
     let buf;
     unsafe {
         buf = libc::calloc(1, STR_BUF_SIZE);

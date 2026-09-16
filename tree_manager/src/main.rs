@@ -68,10 +68,12 @@ fn main() {
         if ENABLE_TRANSLATION {
             if item.tree_data.path == FS_ROOT_PATH {
                 item.fuse_path = marfs_pathman::internal_to_user("/marfs", "");
-            }
-            else {
-                item.fuse_path = marfs_pathman::internal_to_user("/marfs",
-                    &item.tree_data.path
+            } else {
+                item.fuse_path = marfs_pathman::internal_to_user(
+                    "/marfs",
+                    &item
+                        .tree_data
+                        .path
                         .strip_prefix(&format!("{FS_ROOT_PATH}/"))
                         .expect("failed to remove root path prefix"),
                 );
