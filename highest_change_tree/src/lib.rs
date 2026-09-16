@@ -149,10 +149,10 @@ impl ChangeTree {
                     // add parent instead
                     partial_path_new = partial_path.clone();
                 }
-                
+
                 // generate FUSE path from tree reference path
                 let fuse_path = String::new();
-               
+
                 // add leaf directories and parents of files
                 parent_list.push(OutputListData {
                     tree_data: TreeData {

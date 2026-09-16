@@ -44,7 +44,11 @@ fn main() {
         .write_to_file(bindings_path)
         .expect("Failed to write to {bindings_path}");
 
-    println!("cargo:rustc-link-search={}/{}", env!("CARGO_MANIFEST_DIR"), SCOUTWRAP_PATH);
+    println!(
+        "cargo:rustc-link-search={}/{}",
+        env!("CARGO_MANIFEST_DIR"),
+        SCOUTWRAP_PATH
+    );
     println!("cargo:rustc-env=LD_LIBRARY_PATH={}", SCOUTWRAP_PATH);
     println!("cargo:rustc-link-lib=scoutwrap");
 }
