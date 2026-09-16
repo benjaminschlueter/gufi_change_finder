@@ -24,12 +24,11 @@ fn main() {
     let FS_ROOT_PATH = args.root_scoutfs;
     let QUOTA_STATE_FILE = args.quota_state_file_path;
     let VALIDATE_REINDEX = args.validate_reindex;
-    let VALIDATE_REINDEX_PATH;
-    if VALIDATE_REINDEX {
-        VALIDATE_REINDEX_PATH = format!("{STATE_FILE}.reindex_validate");
+    let VALIDATE_REINDEX_PATH = if VALIDATE_REINDEX {
+        format!("{STATE_FILE}.reindex_validate")
     } else {
-        VALIDATE_REINDEX_PATH = String::new();
-    }
+        String::new()
+    };
 
     let mut starting_state;
     match read_state_from_file(&STATE_FILE) {
@@ -46,7 +45,7 @@ fn main() {
     }
 
     // check for existing STATE_SWAP_FILE
-    if let Ok(_) = OpenOptions::new().read(true).open(&STATE_SWAP_FILE) {
+    if OpenOptions::new().read(true).open(&STATE_SWAP_FILE).is_ok() {
         eprintln!("INFO\tdetected state swp file... removing");
 
         if let Err(e) = std::fs::remove_file(Path::new(&STATE_SWAP_FILE)) {
@@ -107,9 +106,9 @@ fn main() {
     };
 
     let last = scoutwrap::WalkInodesEntry {
-        major: std::u64::MAX,
-        ino: std::u64::MAX,
-        minor: std::u32::MAX,
+        major: u64::MAX,
+        ino: u64::MAX,
+        minor: u32::MAX,
     };
 
     let mut walk_inodes_arg = scoutwrap::WalkInodes {
