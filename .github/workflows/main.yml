@@ -1,0 +1,27 @@
+name: Main
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: --D warnings
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+    - name: Checkout ScoutFS source
+      uses: actions/checkout@v5
+      with:
+        repository: versity/scoutfs
+        path: scoutwrap/src/scoutfs
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
+    - name: Format
+      run: cargo fmt --check
