@@ -10,18 +10,17 @@ pub fn filter_internal(path: &str) -> bool {
     // locations. The mdal-root is structured like /root/MDAL_*/subspaces/MDAL_*/subspaces.
     for i in 0..path_vec.len() {
         // odd indices
-        if i % 2 == 0 {
-            if path_vec[i] == "MDAL_datasize"
+        if i % 2 == 0
+            && (path_vec[i] == "MDAL_datasize"
                 || path_vec[i] == "MDAL_reference"
-                || (path_vec[i] == "MDAL_subspaces" && i == path_vec.len() - 1)
-            {
-                // return false if this is an internal path
-                return false;
-            }
+                || (path_vec[i] == "MDAL_subspaces" && i == path_vec.len() - 1))
+        {
+            // return false if this is an internal path
+            return false;
         }
     }
 
-    return true;
+    true
 }
 
 /// return: empty on error

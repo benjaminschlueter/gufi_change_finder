@@ -142,7 +142,7 @@ impl ChangeTree {
 
             if self.arena[child].first_child().is_none() {
                 let is_file = fs::metadata(&partial_path_new)
-                    .expect(&format!("failed to stat {}", &partial_path_new))
+                    .unwrap_or_else(|_| panic!("failed to stat {}", partial_path_new))
                     .is_file();
 
                 if is_file {
@@ -159,7 +159,7 @@ impl ChangeTree {
                         path: partial_path_new.clone(),
                         ino: self.arena[child].get().ino,
                     },
-                    fuse_path: fuse_path,
+                    fuse_path,
                 });
 
                 // if a file is found and the parent is added, no need to keep processing children
