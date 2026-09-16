@@ -242,6 +242,7 @@ fn main() {
                 let mut new_state_file = OpenOptions::new()
                     .write(true)
                     .create(true)
+                    .truncate(true)
                     .open(&STATE_SWAP_FILE)
                     .expect("failed to open state swp file");
 
