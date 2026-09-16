@@ -2,7 +2,7 @@
 /// the quota file MDAL_datasize, anything in the reference tree MDAL_reference and the 
 /// MDAL_subspaces directory itself. 
 /// Assumes a valid path from the ScoutFS ioctl is provided.
-pub fn filter_internal(path: &str) -> bool {
+pub fn is_internal(path: &str) -> bool {
 
     // separate path by / into vector
     let path_vec: Vec<&str> = path.split('/').collect();
@@ -13,14 +13,13 @@ pub fn filter_internal(path: &str) -> bool {
         // odd indices 
         if i % 2 == 0 { 
             if path_vec[i] == "MDAL_datasize" || path_vec[i] == "MDAL_reference" || (path_vec[i] == "MDAL_subspaces" && i == path_vec.len() - 1) {
-                // return false if this is an internal path
-                return false;
+                // return true if this is an internal path
+                return true;
             }
         }
     }
 
-    return true;
-
+    false
 }
 
 /// return: empty on error

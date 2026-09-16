@@ -46,7 +46,7 @@ fn main() {
             exit(0);
         }
 
-        if marfs_pathman::filter_internal(&path) {
+        if !marfs_pathman::is_internal(&path) {
             ChangeTree::add_path(
                 &mut tree,
                 TreeData {
