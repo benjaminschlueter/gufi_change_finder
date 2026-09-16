@@ -24,12 +24,11 @@ fn main() {
     let FS_ROOT_PATH = args.root_scoutfs;
     let QUOTA_STATE_FILE = args.quota_state_file_path;
     let VALIDATE_REINDEX = args.validate_reindex;
-    let VALIDATE_REINDEX_PATH;
-    if VALIDATE_REINDEX {
-        VALIDATE_REINDEX_PATH = format!("{STATE_FILE}.reindex_validate");
+    let VALIDATE_REINDEX_PATH = if VALIDATE_REINDEX {
+        format!("{STATE_FILE}.reindex_validate")
     } else {
-        VALIDATE_REINDEX_PATH = String::new();
-    }
+        String::new()
+    };
 
     let mut starting_state;
     match read_state_from_file(&STATE_FILE) {
@@ -46,7 +45,7 @@ fn main() {
     }
 
     // check for existing STATE_SWAP_FILE
-    if let Ok(_) = OpenOptions::new().read(true).open(&STATE_SWAP_FILE) {
+    if OpenOptions::new().read(true).open(&STATE_SWAP_FILE).is_ok() {
         eprintln!("INFO\tdetected state swp file... removing");
 
         if let Err(e) = std::fs::remove_file(Path::new(&STATE_SWAP_FILE)) {
@@ -72,13 +71,12 @@ fn main() {
         }
     }
 
-    let quota_state;
-    match read_state_from_file(&QUOTA_STATE_FILE) {
-        Ok(s) => quota_state = s,
+    let quota_state = match read_state_from_file(&QUOTA_STATE_FILE) {
+        Ok(s) => s,
         Err(e) => {
             panic!("failed to open quota state file: {e}");
         }
-    }
+    };
 
     eprintln!(
         "INFO\tdetected quota state ({}, {}, {})",
@@ -86,14 +84,14 @@ fn main() {
     );
 
     // open fd for filesystem root
-    let fs_root;
-    match OpenOptions::new().read(true).open(&FS_ROOT_PATH) {
-        Ok(f) => fs_root = f,
+
+    let fs_root = match OpenOptions::new().read(true).open(&FS_ROOT_PATH) {
+        Ok(f) => f,
         Err(e) => panic!(
             "open: {}\nFailed to open filesystem root at {}",
-            e, &FS_ROOT_PATH
+            e, FS_ROOT_PATH
         ),
-    }
+    };
 
     if VERBOSE {
         eprintln!("INFO\topened filesystem root: {FS_ROOT_PATH}");
@@ -102,20 +100,20 @@ fn main() {
     // setup walk_inodes struct
 
     let first = scoutwrap::WalkInodesEntry {
-        major: starting_state.major as u64,
-        ino: starting_state.ino as u64,
-        minor: starting_state.minor as u32,
+        major: starting_state.major,
+        ino: starting_state.ino,
+        minor: starting_state.minor,
     };
 
     let last = scoutwrap::WalkInodesEntry {
-        major: std::u64::MAX,
-        ino: std::u64::MAX,
-        minor: std::u32::MAX,
+        major: u64::MAX,
+        ino: u64::MAX,
+        minor: u32::MAX,
     };
 
     let mut walk_inodes_arg = scoutwrap::WalkInodes {
-        first: first,
-        last: last,
+        first,
+        last,
         entries_vec: Vec::new(),
         nr_entries: BATCH_SIZE,
         index: 0,
@@ -162,9 +160,9 @@ fn main() {
             }
 
             // skip entry if it matches the starting values: it was processed in the last execution
-            if entry.major == starting_state.major as u64
-                && entry.ino == starting_state.ino as u64
-                && entry.minor == starting_state.minor as u32
+            if entry.major == starting_state.major
+                && entry.ino == starting_state.ino
+                && entry.minor == starting_state.minor
             {
                 if VERBOSE {
                     eprintln!("INFO\tskipping starting value {:?}", entry);
@@ -174,7 +172,7 @@ fn main() {
             }
 
             // stop if we are going to get ahead of quota_update
-            if entry.major >= quota_state.major as u64 && entry.minor >= quota_state.minor as u32 {
+            if entry.major >= quota_state.major && entry.minor >= quota_state.minor {
                 eprintln!("INFO\treached quota state: stopping here");
 
                 last_batch = true;
@@ -240,26 +238,25 @@ fn main() {
         // save state on last batch
         if last_batch {
             // update state file with final state
-            if final_state.major != starting_state.major as u64 && final_state.major != 0 {
+            if final_state.major != starting_state.major && final_state.major != 0 {
                 let mut new_state_file = OpenOptions::new()
                     .write(true)
                     .create(true)
+                    .truncate(true)
                     .open(&STATE_SWAP_FILE)
                     .expect("failed to open state swp file");
 
                 let write_str = format!(
                     "{}\n{}\n{}",
-                    final_state.major.to_string(),
-                    final_state.ino.to_string(),
-                    final_state.minor.to_string()
+                    final_state.major, final_state.ino, final_state.minor
                 );
 
                 if let Err(e) = new_state_file.write_all(write_str.as_bytes()) {
-                    panic!("failed to write new state: {}", e.to_string());
+                    panic!("failed to write new state: {}", e);
                 }
 
                 if let Err(e) = std::fs::rename(&STATE_SWAP_FILE, &STATE_FILE) {
-                    panic!("failed to rename state swp file: {}", e.to_string())
+                    panic!("failed to rename state swp file: {}", e)
                 }
             }
 
@@ -288,7 +285,7 @@ fn read_state_from_file(path: &str) -> Result<WalkInodesEntry, String> {
             let mut starting_state_str = String::new();
 
             if let Err(e) = reader.read_to_string(&mut starting_state_str) {
-                panic!("read_to_string: {}", e.to_string());
+                panic!("read_to_string: {}", e);
             }
 
             let input_vec: Vec<String> = starting_state_str
@@ -313,9 +310,9 @@ fn read_state_from_file(path: &str) -> Result<WalkInodesEntry, String> {
         }
         Err(e) => {
             if e.kind() == ErrorKind::NotFound {
-                return Err(String::from("file not found: {path}"));
+                Err(String::from("file not found: {path}"))
             } else {
-                panic!("open: {}\nFailed to open file", e.to_string());
+                panic!("open: {}\nFailed to open file", e);
             }
         }
     }

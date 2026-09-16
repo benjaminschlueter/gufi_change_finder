@@ -1,3 +1,8 @@
+//! SEE SCOUTFS GITHUB PAGE FOR IOCTL DOCUMENTATION. THIS CRATE REPLICATES FUNCTIONALITY AS CLOSELY
+//! AS POSSIBLE TO THE ORIGINAL C INTERFACE.
+//!
+//! Documentation for the ioctl is in the header file kmod/src/ioctl.h
+
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
@@ -6,6 +11,7 @@
 #![allow(dead_code)]
 
 #[allow(unsafe_op_in_unsafe_fn)]
+#[allow(clippy::missing_safety_doc)]
 pub mod bindings {
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
@@ -20,11 +26,6 @@ use std::{mem, slice, str};
 
 pub const STR_BUF_SIZE: usize = 512;
 pub const MAX_HARDLINKS: usize = 8;
-
-/// SEE SCOUTFS GITHUB PAGE FOR IOCTL DOCUMENTATION. THIS CRATE REPLICATES FUNCTIONALITY AS CLOSELY
-/// AS POSSIBLE TO THE ORIGINAL C INTERFACE.
-///
-/// Documentation for the ioctl is in the header file kmod/src/ioctl.h
 
 /// Output of walk_inodes ioctl
 #[derive(Debug, Clone, PartialEq)]
@@ -50,23 +51,23 @@ pub fn walk_inodes(root_fs: &File, mut user_arg: WalkInodes) -> Result<WalkInode
     // create scoutfs_ioctl_walk_inodes and entries structs
 
     let first_c = scoutfs_ioctl_walk_inodes_entry {
-        major: user_arg.first.major as u64,
-        ino: user_arg.first.ino as u64,
-        minor: user_arg.first.minor as u32,
+        major: user_arg.first.major,
+        ino: user_arg.first.ino,
+        minor: user_arg.first.minor,
         _pad: [0u8; 4usize],
     };
 
     let last_c = scoutfs_ioctl_walk_inodes_entry {
-        major: user_arg.last.major as u64,
-        ino: user_arg.last.ino as u64,
-        minor: user_arg.last.minor as u32,
+        major: user_arg.last.major,
+        ino: user_arg.last.ino,
+        minor: user_arg.last.minor,
         _pad: [0u8; 4usize],
     };
 
     let entries_ptr;
     unsafe {
         entries_ptr = libc::calloc(
-            user_arg.nr_entries as usize,
+            user_arg.nr_entries,
             mem::size_of::<scoutfs_ioctl_walk_inodes_entry>(),
         );
         if entries_ptr.is_null() {
@@ -175,7 +176,7 @@ pub fn ino_path(root_fs: &File, path_arg: InoPath) -> Result<InoPathResult, Stri
             path: ret_str,
         };
 
-        return Ok(ret_struct);
+        Ok(ret_struct)
     }
 }
 
@@ -225,5 +226,5 @@ pub fn listxattr_hidden(fd: BorrowedFd, xattr_arg: ListxattrHidden) -> Result<Ve
         })
         .collect();
 
-    return Ok(xattr_str_vec);
+    Ok(xattr_str_vec)
 }

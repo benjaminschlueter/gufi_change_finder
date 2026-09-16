@@ -1,7 +1,7 @@
 use std::{path::PathBuf, process::Command};
 
-const SCOUTWRAP_PATH: &'static str = "src/scoutwrap";
-const SCOUTFS_PATH: &'static str = "src/scoutfs";
+const SCOUTWRAP_PATH: &str = "src/scoutwrap";
+const SCOUTFS_PATH: &str = "src/scoutfs";
 
 fn main() {
     println!("cargo::rerun-if-changed={}/scoutwrap.c", SCOUTWRAP_PATH);

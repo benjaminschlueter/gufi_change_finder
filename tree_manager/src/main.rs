@@ -46,12 +46,12 @@ fn main() {
             exit(0);
         }
 
-        if marfs_pathman::filter_internal(&path) {
+        if marfs_pathman::filter_internal(path) {
             ChangeTree::add_path(
                 &mut tree,
                 TreeData {
                     path: path.to_string(),
-                    ino: ino,
+                    ino,
                 },
             );
         }
@@ -71,8 +71,7 @@ fn main() {
             } else {
                 item.fuse_path = marfs_pathman::internal_to_user(
                     "/marfs",
-                    &item
-                        .tree_data
+                    item.tree_data
                         .path
                         .strip_prefix(&format!("{FS_ROOT_PATH}/"))
                         .expect("failed to remove root path prefix"),
