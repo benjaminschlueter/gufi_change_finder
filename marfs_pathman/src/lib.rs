@@ -6,7 +6,7 @@ use regex::Regex;
 pub fn is_internal(marfs_mdal_root: &str, path: &str) -> bool {
     // matches internal MarFS paths that have no mappings to the user tree
     let re = Regex::new(&format!(
-        "^{marfs_mdal_root}/(MDAL_subspaces/[^/]+/)*MDAL_([^/]+|reference.*)$"
+        "^{}/(MDAL_subspaces/[^/]+/)*MDAL_([^/]+|reference.*)$", marfs_mdal_root
     ))
     .unwrap();
 

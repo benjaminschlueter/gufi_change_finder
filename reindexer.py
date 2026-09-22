@@ -49,14 +49,12 @@ if "MARFS_CONFIG_PATH" not in os.environ:
     sys.exit()
 
 # ensure working dir exists and is in a clean state 
-try:
-    shutil.rmtree(WORK_DIR)
-except FileNotFoundError:
-    pass
-
 os.makedirs(WORK_DIR, exist_ok=True)
-os.mkdir(WORK_REINDEX_DIR)
+
+shutil.rmtree(WORK_OLD_DIR)
 os.mkdir(WORK_OLD_DIR)
+shutil.rmtree(WORK_REINDEX_DIR)
+os.mkdir(WORK_REINDEX_DIR)
 
 paths = []
 rm_threads = []
@@ -109,7 +107,11 @@ for thread in rm_threads:
     thread.join()
 
 print(f"Cleaning up working dir {WORK_DIR}")
+shutil.rmtree(WORK_OLD_DIR)
+os.mkdir(WORK_OLD_DIR)
 shutil.rmtree(WORK_REINDEX_DIR)
+os.mkdir(WORK_REINDEX_DIR)
+
 
 print(f"Regenerating treesummaries")
 result = subprocess.run([f"{GUFI_PATH}/src/gufi_treesummary_all", GUFI_INDEX_DIR], stdout=subprocess.DEVNULL)
