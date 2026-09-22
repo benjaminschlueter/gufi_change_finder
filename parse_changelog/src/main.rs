@@ -310,7 +310,7 @@ fn read_state_from_file(path: &str) -> Result<WalkInodesEntry, String> {
         }
         Err(e) => {
             if e.kind() == ErrorKind::NotFound {
-                Err(String::from("file not found: {path}"))
+                Err(format!("file not found: {path}"))
             } else {
                 panic!("open: {}\nFailed to open file", e);
             }
