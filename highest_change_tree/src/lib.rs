@@ -113,16 +113,6 @@ impl ChangeTree {
         }
     }
 
-    /// Trims all nodes below the root. This function is public so the caller can trim below the
-    /// root in the case where it is found.
-    pub fn trim_below_root(tree: &mut ChangeTree) {
-        let children: Vec<NodeId> = tree.root.children(&tree.arena).collect();
-
-        for c in children {
-            c.remove_subtree(&mut tree.arena);
-        }
-    }
-
     /// This recursive function traverses the tree to the leaves and adds them to a vector for output.
     pub fn parse_leaves(&self, parent_list: &mut Vec<OutputListData>, partial_path: String) {
         self.parse_leaves_inner(self.root, parent_list, partial_path);
