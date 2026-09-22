@@ -114,8 +114,16 @@ impl ChangeTree {
     }
 
     /// This recursive function traverses the tree to the leaves and adds them to a vector for output.
-    pub fn parse_leaves(&self, parent_list: &mut Vec<OutputListData>, partial_path: String) {
-        self.parse_leaves_inner(self.root, parent_list, partial_path);
+    pub fn parse_leaves(&self) -> Vec<OutputListData> {
+        let mut parent_list = Vec::new();
+
+        self.parse_leaves_inner(
+            self.root,
+            &mut parent_list,
+            self.arena[self.root].get().path.clone(),
+        );
+
+        parent_list
     }
 
     fn parse_leaves_inner(

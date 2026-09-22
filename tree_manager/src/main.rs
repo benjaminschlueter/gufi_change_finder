@@ -46,9 +46,7 @@ fn main() {
 
     // Finished adding to tree
 
-    let mut parent_list: Vec<OutputListData> = Vec::new();
-
-    ChangeTree::parse_leaves(&tree, &mut parent_list, FS_ROOT_PATH.clone());
+    let parent_list = ChangeTree::parse_leaves(&tree);
 
     for mut item in parent_list {
         // generate fuse path here to keep filtering/translation in one place
