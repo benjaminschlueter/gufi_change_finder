@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
 
 use std::io::{self, BufRead};
-use std::process::exit;
 
 use clap::Parser;
 
@@ -33,19 +32,7 @@ fn main() {
 
         let path = &line_vec[0];
         let ino: u64 = line_vec[1].parse().unwrap();
-
-        // handle root directory separately because it has empty path
-        // - execution continues after to advance to final state
-        if ino == 1 {
-            eprintln!("INFO\tfilesystem root detected: trimming all nodes below");
-
-            ChangeTree::trim_below_root(&mut tree);
-
-            // no need to add anything else to the tree, just output the root
-            eprintln!("Finished tree_manager");
-            exit(0);
-        }
-
+        
         if marfs_pathman::filter_internal(path) {
             ChangeTree::add_path(
                 &mut tree,
