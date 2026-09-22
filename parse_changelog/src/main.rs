@@ -210,6 +210,12 @@ fn main() {
                     }
                     Err(e) => {
                         if std::io::Error::last_os_error().kind() == ErrorKind::NotFound {
+                            // the filesystem root won't return a valid path; add an empty string here
+                            // to handle it
+                            if entry.ino == 1 {
+                                ino_path_vec.push(String::new());
+                            }
+
                             // handle a case where a deleted files inode will still show up in the changelog
                             // this case now happens every inode on the final loop iteration
                             break;

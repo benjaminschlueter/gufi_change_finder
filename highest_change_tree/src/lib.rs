@@ -56,8 +56,6 @@ impl ChangeTree {
         let path_vec_last = path_vec[path_vec.len() - 1];
 
         for entry in &path_vec {
-            // skip tree_root path_vec entry
-
             // check if cur_node has child named entry
             if let Some(c) = cur_node
                 .children(&tree.arena)
