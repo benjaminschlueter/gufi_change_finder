@@ -27,6 +27,7 @@ args = parser.parse_args()
 THREAD_COUNT=args.threads
 GUFI_PATH=args.gufi_path
 GUFI_INDEX_DIR=args.index
+WORK_DIR=f"{args.workdir}"
 WORK_REINDEX_DIR=f"{args.workdir}/reindex"
 WORK_OLD_DIR=f"{args.workdir}/old"
 VALIDATE_STATE=args.validate_state
@@ -47,18 +48,18 @@ if "MARFS_CONFIG_PATH" not in os.environ:
     print("Error: environment variable MARFS_CONFIG_PATH is not defined")
     sys.exit()
 
+# ensure working dir exists and is in a clean state 
+try:
+    shutil.rmtree(WORK_DIR)
+except FileNotFoundError:
+    pass
 
-os.makedirs(WORK_REINDEX_DIR, exist_ok=True)
-
-# if WORK_OLD_DIR or WORK_INDEX_DIR  has unremoved contents, remove them before beginning
-shutil.rmtree(WORK_OLD_DIR)
-os.mkdir(WORK_OLD_DIR)
-shutil.rmtree(WORK_REINDEX_DIR)
+os.makedirs(WORK_DIR, exist_ok=True)
 os.mkdir(WORK_REINDEX_DIR)
+os.mkdir(WORK_OLD_DIR)
 
 paths = []
 rm_threads = []
-
 
 # add all paths from stdin to list before executing steps
 for line in sys.stdin:
@@ -85,13 +86,17 @@ for path in paths:
 for path in paths:
     print(f"Pivoting {path[1]}")
     
-    os.makedirs(f"{WORK_OLD_DIR}{path[1]}", exist_ok=True)
+    parent_fuse_path_split = path[1].split('/')[:-1]
+    parent_fuse_path = "/".join(parent_fuse_path_split)
+
+    os.makedirs(f"{WORK_OLD_DIR}{parent_fuse_path}", exist_ok=True)
     
     # move GUFI tree subdir to working dir
-    os.rename(f"{GUFI_INDEX_DIR}{path[1]}", f"{WORK_OLD_DIR}{path[1]}")
+    shutil.move(f"{GUFI_INDEX_DIR}{path[1]}", f"{WORK_OLD_DIR}{parent_fuse_path}")
 
     # move new reindexed subdir to GUFI tree
-    os.rename(f"{WORK_REINDEX_DIR}{path[1]}", f"{GUFI_INDEX_DIR}{path[1]}")
+    # do not create parent in GUFI tree because for something new to be created, the parent inode must change
+    shutil.move(f"{WORK_REINDEX_DIR}{path[1]}", f"{GUFI_INDEX_DIR}{parent_fuse_path}")
 
     # spawn a new thread to remove old index: could this spawn too many?
     thread = threading.Thread(target=rm_worker, args=(f"{WORK_OLD_DIR}{path[1]}",))
@@ -103,14 +108,8 @@ for path in paths:
 for thread in rm_threads:
     thread.join()
 
-print(f"Cleaning up working dir {WORK_OLD_DIR}")
-shutil.rmtree(WORK_OLD_DIR)
-os.mkdir(WORK_OLD_DIR)
-
-print(f"Cleaning up working dir {WORK_REINDEX_DIR}")
+print(f"Cleaning up working dir {WORK_DIR}")
 shutil.rmtree(WORK_REINDEX_DIR)
-os.mkdir(WORK_REINDEX_DIR)
-
 
 print(f"Regenerating treesummaries")
 result = subprocess.run([f"{GUFI_PATH}/src/gufi_treesummary_all", GUFI_INDEX_DIR], stdout=subprocess.DEVNULL)
