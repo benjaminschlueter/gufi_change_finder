@@ -1,19 +1,20 @@
 use regex::Regex;
 
 /// Returns true if path is an internal component to the MarFS filesystem refrence tree, including
-/// the quota file MDAL_datasize, anything in the reference tree MDAL_reference and the 
-/// MDAL_subspaces directory itself. 
+/// the quota file MDAL_datasize, anything in the reference tree MDAL_reference and the
+/// MDAL_subspaces directory itself.
 pub fn is_internal(path: &str) -> bool {
-    
-    // matches internal MarFS paths that have no mappings to the user tree  
-    let re = Regex::new("^/var/marfs/mdal-root/sec-root/(MDAL_subspaces/[^/]+/)*MDAL_([^/]+|reference.*)$").unwrap();
+    // matches internal MarFS paths that have no mappings to the user tree
+    let re = Regex::new(
+        "^/var/marfs/mdal-root/sec-root/(MDAL_subspaces/[^/]+/)*MDAL_([^/]+|reference.*)$",
+    )
+    .unwrap();
 
     re.is_match(path)
 }
 
 /// return: empty on error
 pub fn internal_to_user(user_root_path: &str, internal_path: &str) -> String {
-
     if internal_path.is_empty() {
         return user_root_path.to_string();
     }
@@ -28,7 +29,6 @@ pub fn internal_to_user(user_root_path: &str, internal_path: &str) -> String {
         .filter(|s| *s != "MDAL_subspaces")
         .collect::<Vec<&str>>()
         .join("/")
-
 }
 
 /*

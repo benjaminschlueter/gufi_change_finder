@@ -23,12 +23,11 @@ fn main() {
     let VERBOSE = args.verbose;
     let FS_ROOT_PATH = args.root_scoutfs;
     let QUOTA_STATE_FILE = args.quota_state_file_path;
-    let VALIDATE_REINDEX = args.validate_reindex; 
+    let VALIDATE_REINDEX = args.validate_reindex;
     let VALIDATE_REINDEX_PATH;
     if VALIDATE_REINDEX {
         VALIDATE_REINDEX_PATH = format!("{STATE_FILE}.reindex_validate");
-    }
-    else {
+    } else {
         VALIDATE_REINDEX_PATH = String::new();
     }
 
@@ -45,7 +44,7 @@ fn main() {
             };
         }
     }
-    
+
     // check for existing STATE_SWAP_FILE
     if let Ok(_) = OpenOptions::new().read(true).open(&STATE_SWAP_FILE) {
         eprintln!("INFO\tdetected state swp file... removing");
@@ -56,7 +55,7 @@ fn main() {
     }
 
     // if this is enabled, parse_changelog will read a statefile output by reindexer.py to confirm
-    // reindexer finished properly before proceeding further into the changelog 
+    // reindexer finished properly before proceeding further into the changelog
     if VALIDATE_REINDEX {
         match read_state_from_file(&VALIDATE_REINDEX_PATH) {
             Ok(s) => {
@@ -66,13 +65,13 @@ fn main() {
                     eprintln!("WARNING\trestarting from last validated state");
                     starting_state = reindex_validate_state;
                 }
-            },
+            }
             Err(e) => {
                 panic!("failed to open reindex validation file: {e}");
             }
         }
     }
-    
+
     let quota_state;
     match read_state_from_file(&QUOTA_STATE_FILE) {
         Ok(s) => quota_state = s,
@@ -225,14 +224,13 @@ fn main() {
 
             // handle all paths to inode from hard links
             for path in ino_path_vec {
-
                 // print inodes and paths to stdout and all logs to stderr
                 println!("{}\t\0{}", path, entry.ino);
 
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
-                
+
                 final_state = entry.clone();
-            } 
+            }
         }
 
         if VERBOSE {
@@ -286,7 +284,6 @@ fn main() {
 fn read_state_from_file(path: &str) -> Result<WalkInodesEntry, String> {
     match OpenOptions::new().read(true).open(path) {
         Ok(f) => {
-
             let mut reader = BufReader::new(&f);
             let mut starting_state_str = String::new();
 
@@ -298,7 +295,7 @@ fn read_state_from_file(path: &str) -> Result<WalkInodesEntry, String> {
                 .split("\n")
                 .map(|s| s.to_string())
                 .collect();
-            
+
             Ok(WalkInodesEntry {
                 major: input_vec[0]
                     .trim()
