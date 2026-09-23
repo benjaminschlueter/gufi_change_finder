@@ -39,7 +39,14 @@ if VALIDATE_STATE:
         print("detected reindex_validate swap file, removing")
         os.remove(f"{VALIDATE_STATE_PATH}.reindex_validate.swp")
 
-# check for GUFI commands in path, if GUFI_PATH not specified (shutil) 
+# confirm environment variables are set
+if "MARFS_SEC_ROOT" not in os.environ:
+    print("Error: environment variable MARFS_SEC_ROOT is not defined")
+    sys.exit()
+if "MARFS_CONFIG_PATH" not in os.environ:
+    print("Error: environment variable MARFS_CONFIG_PATH is not defined")
+    sys.exit()
+
 
 os.makedirs(WORK_REINDEX_DIR, exist_ok=True)
 
@@ -48,9 +55,6 @@ shutil.rmtree(WORK_OLD_DIR)
 os.mkdir(WORK_OLD_DIR)
 shutil.rmtree(WORK_REINDEX_DIR)
 os.mkdir(WORK_REINDEX_DIR)
-
-os.environ["MARFS_SEC_ROOT"] = "/var/marfs/mdal-root/sec-root"
-os.environ["MARFS_CONFIG_PATH"] = "/opt/storage/marfs/install/etc/marfs-config.xml"
 
 paths = []
 rm_threads = []
@@ -119,6 +123,6 @@ if result.returncode == 1 and not Path(f"{GUFI_INDEX_DIR}/db.db").is_file():
 if VALIDATE_STATE:
     shutil.copy(VALIDATE_STATE_PATH, f"{VALIDATE_STATE_PATH}.reindex_validate.swp")
     os.replace(f"{VALIDATE_STATE_PATH}.reindex_validate.swp", f"{VALIDATE_STATE_PATH}.reindex_validate")
-    print(f"wrote state validation file {VALIDATE_STATE_PATH}.reindex_validate")
+    print(f"Wrote state validation file {VALIDATE_STATE_PATH}.reindex_validate")
 
 
