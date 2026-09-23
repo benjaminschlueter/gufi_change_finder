@@ -46,7 +46,8 @@ fn main() {
             exit(0);
         }
 
-        if marfs_pathman::filter_internal(&path) {
+        // only add paths with user mappings; skip MarFS internals
+        if !marfs_pathman::is_internal(&path) {
             ChangeTree::add_path(
                 &mut tree,
                 TreeData {
