@@ -33,7 +33,8 @@ fn main() {
         let path = &line_vec[0];
         let ino: u64 = line_vec[1].parse().unwrap();
 
-        if marfs_pathman::filter_internal(path) {
+        // only add paths with user mappings; skip MarFS internals
+        if !marfs_pathman::is_internal(path) {
             ChangeTree::add_path(
                 &mut tree,
                 TreeData {

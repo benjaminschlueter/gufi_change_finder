@@ -39,18 +39,22 @@ if VALIDATE_STATE:
         print("detected reindex_validate swap file, removing")
         os.remove(f"{VALIDATE_STATE_PATH}.reindex_validate.swp")
 
-# check for GUFI commands in path, if GUFI_PATH not specified (shutil) 
+# confirm environment variables are set
+if "MARFS_SEC_ROOT" not in os.environ:
+    print("Error: environment variable MARFS_SEC_ROOT is not defined")
+    sys.exit()
+if "MARFS_CONFIG_PATH" not in os.environ:
+    print("Error: environment variable MARFS_CONFIG_PATH is not defined")
+    sys.exit()
 
-result = subprocess.run(["mkdir", "-p", WORK_REINDEX_DIR], check=True)
+
+os.makedirs(WORK_REINDEX_DIR, exist_ok=True)
 
 # if WORK_OLD_DIR or WORK_INDEX_DIR  has unremoved contents, remove them before beginning
-result = subprocess.run(["rm", "-rf", f"{WORK_OLD_DIR}"], True)
-result = subprocess.run(["mkdir", "-p", WORK_OLD_DIR], check=True)
-result = subprocess.run(["rm", "-rf", f"{WORK_REINDEX_DIR}"], True)
-result = subprocess.run(["mkdir", "-p", WORK_REINDEX_DIR], check=True)
-
-os.environ["MARFS_SEC_ROOT"] = "/var/marfs/mdal-root/sec-root"
-os.environ["MARFS_CONFIG_PATH"] = "/opt/storage/marfs/install/etc/marfs-config.xml"
+shutil.rmtree(WORK_OLD_DIR)
+os.mkdir(WORK_OLD_DIR)
+shutil.rmtree(WORK_REINDEX_DIR)
+os.mkdir(WORK_REINDEX_DIR)
 
 paths = []
 rm_threads = []
@@ -81,27 +85,13 @@ for path in paths:
 for path in paths:
     print(f"Pivoting {path[1]}")
     
-    parent_fuse_path_split = path[1].split('/')[:-1]
-    parent_fuse_path = "/".join(parent_fuse_path_split)
-   
-    result = subprocess.run(["mkdir", "-p", f"{WORK_OLD_DIR}{parent_fuse_path}"]) 
-    result = subprocess.run(["mkdir", "-p", f"{GUFI_INDEX_DIR}{parent_fuse_path}"]) 
+    os.makedirs(f"{WORK_OLD_DIR}{path[1]}", exist_ok=True)
     
     # move GUFI tree subdir to working dir
-    # allowed to fail when the index is being generated for the first time and is not in the GUFI tree yet
-    # ADD HANDLER TO PRODUCE WARNING?
-    result = subprocess.run(["mv", f"{GUFI_INDEX_DIR}{path[1]}", f"{WORK_OLD_DIR}{parent_fuse_path}"], stderr=subprocess.PIPE, universal_newlines=True) 
-
-    # if this index is not part of the GUFI tree yet, print a warning. On other move errors, fail.
-    if result.returncode == 1:
-        if "No such file or directory" in str(result.stderr):
-            print(f"Warning: {GUFI_INDEX_DIR}{path[1]} does not exist in the GUFI tree")
-        else:
-            print(str(result.stderr).rstrip("\n"))
-            exit()
+    os.rename(f"{GUFI_INDEX_DIR}{path[1]}", f"{WORK_OLD_DIR}{path[1]}")
 
     # move new reindexed subdir to GUFI tree
-    result = subprocess.run(["mv", f"{WORK_REINDEX_DIR}{path[1]}", f"{GUFI_INDEX_DIR}{parent_fuse_path}"], check=True)
+    os.rename(f"{WORK_REINDEX_DIR}{path[1]}", f"{GUFI_INDEX_DIR}{path[1]}")
 
     # spawn a new thread to remove old index: could this spawn too many?
     thread = threading.Thread(target=rm_worker, args=(f"{WORK_OLD_DIR}{path[1]}",))
@@ -114,12 +104,12 @@ for thread in rm_threads:
     thread.join()
 
 print(f"Cleaning up working dir {WORK_OLD_DIR}")
-result = subprocess.run(["rm", "-rf", f"{WORK_OLD_DIR}"], check=True)
-result = subprocess.run(["mkdir", "-p", WORK_OLD_DIR], check=True)
+shutil.rmtree(WORK_OLD_DIR)
+os.mkdir(WORK_OLD_DIR)
 
 print(f"Cleaning up working dir {WORK_REINDEX_DIR}")
-result = subprocess.run(["rm", "-rf", f"{WORK_REINDEX_DIR}"], check=True)
-result = subprocess.run(["mkdir", "-p", WORK_REINDEX_DIR], check=True)
+shutil.rmtree(WORK_REINDEX_DIR)
+os.mkdir(WORK_REINDEX_DIR)
 
 
 print(f"Regenerating treesummaries")
@@ -136,6 +126,6 @@ if result.returncode == 1:
 if VALIDATE_STATE:
     shutil.copy(VALIDATE_STATE_PATH, f"{VALIDATE_STATE_PATH}.reindex_validate.swp")
     os.replace(f"{VALIDATE_STATE_PATH}.reindex_validate.swp", f"{VALIDATE_STATE_PATH}.reindex_validate")
-    print(f"wrote state validation file {VALIDATE_STATE_PATH}.reindex_validate")
+    print(f"Wrote state validation file {VALIDATE_STATE_PATH}.reindex_validate")
 
 

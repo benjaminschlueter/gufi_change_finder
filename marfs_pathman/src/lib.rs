@@ -1,26 +1,16 @@
+use regex::Regex;
+
 /// Returns true if path is an internal component to the MarFS filesystem refrence tree, including
 /// the quota file MDAL_datasize, anything in the reference tree MDAL_reference and the
 /// MDAL_subspaces directory itself.
-/// Assumes a valid path from the ScoutFS ioctl is provided.
-pub fn filter_internal(path: &str) -> bool {
-    // separate path by / into vector
-    let path_vec: Vec<&str> = path.split('/').collect();
+pub fn is_internal(path: &str) -> bool {
+    // matches internal MarFS paths that have no mappings to the user tree
+    let re = Regex::new(
+        "^/var/marfs/mdal-root/sec-root/(MDAL_subspaces/[^/]+/)*MDAL_([^/]+|reference.*)$",
+    )
+    .unwrap();
 
-    // iterate over path_vec looking for marfs internal keywords in the correct structural
-    // locations. The mdal-root is structured like /root/MDAL_*/subspaces/MDAL_*/subspaces.
-    for i in 0..path_vec.len() {
-        // odd indices
-        if i % 2 == 0
-            && (path_vec[i] == "MDAL_datasize"
-                || path_vec[i] == "MDAL_reference"
-                || (path_vec[i] == "MDAL_subspaces" && i == path_vec.len() - 1))
-        {
-            // return false if this is an internal path
-            return false;
-        }
-    }
-
-    true
+    re.is_match(path)
 }
 
 /// return: empty on error
