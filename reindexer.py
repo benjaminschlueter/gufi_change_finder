@@ -81,9 +81,6 @@ for path in paths:
 for path in paths:
     print(f"Pivoting {path[1]}")
     
-    parent_fuse_path_split = path[1].split('/')[:-1]
-    parent_fuse_path = "/".join(parent_fuse_path_split)
-   
     os.makedirs(f"{WORK_OLD_DIR}{path[1]}", exist_ok=True)
     
     # move GUFI tree subdir to working dir
