@@ -33,12 +33,16 @@ fn main() {
         let path = &line_vec[0];
         let ino: u64 = line_vec[1].parse().unwrap();
 
+        let rel_path = path
+            .strip_prefix(&format!("{FS_ROOT_PATH}/"))
+            .expect("failed to remove root path prefix");
+
         // only add paths with user mappings; skip MarFS internals
-        if !marfs_pathman::is_internal(path) {
+        if !marfs_pathman::is_internal(rel_path) {
             ChangeTree::add_path(
                 &mut tree,
                 TreeData {
-                    path: path.to_string(),
+                    path: rel_path.to_string(),
                     ino,
                 },
             );
