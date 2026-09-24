@@ -7,12 +7,11 @@ static RE: OnceLock<Regex> = OnceLock::new();
 /// Returns true if path is an internal component to the MarFS filesystem refrence tree, including
 /// the quota file MDAL_datasize, anything in the reference tree MDAL_reference and the
 /// MDAL_subspaces directory itself.
-pub fn is_internal(marfs_mdal_root: &str, path: &str) -> bool {
+pub fn is_internal(path: &str) -> bool {
     let regex = RE.get_or_init(|| {
         // matches internal MarFS paths that have no mappings to the user tree
         Regex::new(&format!(
-            "^{}/(MDAL_subspaces/[^/]+/)*MDAL_([^/]+|reference.*)$",
-            marfs_mdal_root
+            "^(MDAL_subspaces/[^/]+/)*MDAL_([^/]+|reference.*)$",
         ))
         .unwrap()
     });
@@ -66,8 +65,41 @@ pub fn internal_to_user(user_root_path: &str, internal_path: &str) -> String {
 mod tests {
     use super::*;
 
+
     #[test]
-    fn all() {
+    fn test_is_internal() {
+        assert_eq!(is_internal(""), false);
+        assert_eq!(is_internal("file1"), false);
+        assert_eq!(is_internal("dir1"), false);
+        assert_eq!(is_internal("dir1/file1"), false);
+        assert_eq!(is_internal("MDAL_datasize"), true);
+        assert_eq!(is_internal("MDAL_reference"), true);
+        assert_eq!(is_internal("MDAL_reference/00"), true);
+        assert_eq!(is_internal("MDAL_reference/00/00"), true);
+        assert_eq!(is_internal("MDAL_subspaces"), true);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace"), false);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/file1"), false);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/dir1"), false);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/dir1/file1"), false);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_datasize"), true);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_reference"), true);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_reference/00"), true);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_reference/00/00"), true);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces"), true);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace"), false);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/file1"), false);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/dir1"), false);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/dir1/file1"), false);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/MDAL_datasize"), true);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/MDAL_reference"), true);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/MDAL_reference/00"), true);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/MDAL_reference/00/00"), true);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/MDAL_subspaces"), true);
+        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/MDAL_subspaces/more-deeper-subspace"), false);
+    }
+
+    #[test]
+    fn test_internal_to_user() {
         assert_eq!(internal_to_user("/marfs", ""), "/marfs");
         assert_eq!(internal_to_user("/marfs", "a"), "/marfs/a");
         assert_eq!(internal_to_user("/marfs", "a/b"), "/marfs/a/b");
