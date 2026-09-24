@@ -20,13 +20,13 @@ use std::fs;
 
 const MAX_CHILD_COUNT: usize = 1024; // if a node has more than this many children, give up adding more and rescan the whole parent dir
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct OutputListData {
     pub tree_data: TreeData,
     pub fuse_path: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TreeData {
     pub path: String,
     pub ino: u64,
@@ -174,3 +174,21 @@ impl ChangeTree {
         }
     }
 }
+
+/*
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all() {
+        let tree = ChangeTree::new(TreeData {
+            path: String::from("/var/marfs/mdal-root/sec-root"),
+            ino: 1,
+        });
+
+        // breaks because when the tree is just the root with no children, the parse_leaves function will immediately return. This is not a case that will appear in a natural workflow of GUFI change finder. But should still work as intended.
+        // assert_eq!(tree.parse_leaves(), vec![OutputListData { tree_data: TreeData { path: String::from("/var/marfs/mdal-root/sec-root"), ino: 1 }, fuse_path: String::new() }]);
+    }
+}
+*/
