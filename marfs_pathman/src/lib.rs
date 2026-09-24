@@ -136,15 +136,30 @@ mod tests {
             ),
             true
         );
-        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/MDAL_reference/00"), true);
-        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/MDAL_reference/00/00"), true);
+        assert_eq!(
+            is_internal(
+                "MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/MDAL_reference/00"
+            ),
+            true
+        );
+        assert_eq!(
+            is_internal(
+                "MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/MDAL_reference/00/00"
+            ),
+            true
+        );
         assert_eq!(
             is_internal(
                 "MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/MDAL_subspaces"
             ),
             true
         );
-        assert_eq!(is_internal("MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/MDAL_subspaces/more-deeper-subspace"), false);
+        assert_eq!(
+            is_internal(
+                "MDAL_subspaces/full-access-subspace/MDAL_subspaces/deeper-subspace/MDAL_subspaces/more-deeper-subspace"
+            ),
+            false
+        );
     }
 
     #[test]
