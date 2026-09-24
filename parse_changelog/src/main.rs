@@ -5,7 +5,7 @@ use scoutwrap::*;
 use std::fs::OpenOptions;
 use std::io::ErrorKind;
 use std::io::{BufReader, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use clap::Parser;
 
@@ -19,19 +19,19 @@ fn main() {
 
     let BATCH_SIZE = args.batch_size;
     let STATE_FILE = args.state_file_path;
-    let STATE_SWAP_FILE = format!("{STATE_FILE}.swp");
+    let STATE_SWAP_FILE = STATE_FILE.with_extension("swp");
     let VERBOSE = args.verbose;
     let FS_ROOT_PATH = args.root_scoutfs;
     let QUOTA_STATE_FILE = args.quota_state_file_path;
     let VALIDATE_REINDEX = args.validate_reindex;
     let VALIDATE_REINDEX_PATH = if VALIDATE_REINDEX {
-        format!("{STATE_FILE}.reindex_validate")
+        STATE_FILE.with_extension("reindex_validate")
     } else {
-        String::new()
+        PathBuf::new()
     };
 
     let mut starting_state;
-    match read_state_from_file(&STATE_FILE) {
+    match read_state_file(&STATE_FILE) {
         Ok(s) => starting_state = s,
         Err(e) => {
             eprintln!("{e}");
@@ -56,12 +56,13 @@ fn main() {
     // if this is enabled, parse_changelog will read a statefile output by reindexer.py to confirm
     // reindexer finished properly before proceeding further into the changelog
     if VALIDATE_REINDEX {
-        match read_state_from_file(&VALIDATE_REINDEX_PATH) {
+        match read_state_file(&VALIDATE_REINDEX_PATH) {
             Ok(s) => {
                 let reindex_validate_state = s;
                 if reindex_validate_state != starting_state {
-                    eprintln!("WARNING\treindexer validated state and starting state do not match");
-                    eprintln!("WARNING\trestarting from last validated state");
+                    eprintln!(
+                        "WARNING\treindexer validated state and starting state do not match: restarting from last validated state"
+                    );
                     starting_state = reindex_validate_state;
                 }
             }
@@ -71,11 +72,9 @@ fn main() {
         }
     }
 
-    let quota_state = match read_state_from_file(&QUOTA_STATE_FILE) {
+    let quota_state = match read_state_file(&QUOTA_STATE_FILE) {
         Ok(s) => s,
-        Err(e) => {
-            panic!("failed to open quota state file: {e}");
-        }
+        Err(e) => panic!("failed to open quota state file: {e}"),
     };
 
     eprintln!(
@@ -89,21 +88,18 @@ fn main() {
         Ok(f) => f,
         Err(e) => panic!(
             "open: {}\nFailed to open filesystem root at {}",
-            e, FS_ROOT_PATH
+            e,
+            FS_ROOT_PATH.display()
         ),
     };
 
     if VERBOSE {
-        eprintln!("INFO\topened filesystem root: {FS_ROOT_PATH}");
+        eprintln!("INFO\topened filesystem root: {}", FS_ROOT_PATH.display());
     }
 
     // setup walk_inodes struct
 
-    let first = scoutwrap::WalkInodesEntry {
-        major: starting_state.major,
-        ino: starting_state.ino,
-        minor: starting_state.minor,
-    };
+    let first = starting_state.clone();
 
     let last = scoutwrap::WalkInodesEntry {
         major: u64::MAX,
@@ -126,8 +122,8 @@ fn main() {
     };
 
     eprintln!(
-        "Starting parse_changelog with starting state (major: {}, ino: {}, minor: {})",
-        starting_state.major, starting_state.ino, starting_state.minor
+        "Starting parse_changelog with starting state {:?}",
+        starting_state
     );
 
     // process batches until entries vector is empty
@@ -153,17 +149,16 @@ fn main() {
         for entry in &walk_inodes_arg.entries_vec {
             // don't process the last entry of batches that are not the last batch. The last entry of the final batch will be processed.
             if !last_batch && entry.ino == walk_inodes_arg.entries_vec.last().unwrap().ino {
-                walk_inodes_arg.first.major = walk_inodes_arg.entries_vec.last().unwrap().major;
-                walk_inodes_arg.first.ino = walk_inodes_arg.entries_vec.last().unwrap().ino;
-                walk_inodes_arg.first.minor = walk_inodes_arg.entries_vec.last().unwrap().minor;
+                walk_inodes_arg.first = WalkInodesEntry {
+                    major: walk_inodes_arg.entries_vec.last().unwrap().major,
+                    ino: walk_inodes_arg.entries_vec.last().unwrap().ino,
+                    minor: walk_inodes_arg.entries_vec.last().unwrap().minor,
+                };
                 break;
             }
 
             // skip entry if it matches the starting values: it was processed in the last execution
-            if entry.major == starting_state.major
-                && entry.ino == starting_state.ino
-                && entry.minor == starting_state.minor
-            {
+            if *entry == starting_state {
                 if VERBOSE {
                     eprintln!("INFO\tskipping starting value {:?}", entry);
                 }
@@ -229,7 +224,7 @@ fn main() {
             // handle all paths to inode from hard links
             for path in ino_path_vec {
                 // print inodes and paths to stdout and all logs to stderr
-                println!("{}/{}\t\0{}", FS_ROOT_PATH, path, entry.ino);
+                println!("{}/{}\t\0{}", FS_ROOT_PATH.display(), path, entry.ino);
 
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
 
@@ -273,18 +268,15 @@ fn main() {
     if final_state.major == 0 && final_state.ino == 0 && final_state.minor == 0 {
         eprintln!("INFO\tno changes detected");
         eprintln!(
-            "Finished parse_changelog at final state (major: {}, ino: {}, minor: {})",
-            starting_state.major, starting_state.ino, starting_state.minor
+            "Finished parse_changelog at final state {:?}",
+            starting_state
         );
     } else {
-        eprintln!(
-            "Finished parse_changelog at final state (major: {}, ino: {}, minor: {})",
-            final_state.major, final_state.ino, final_state.minor
-        );
+        eprintln!("Finished parse_changelog at final state {:?}", final_state);
     }
 }
 
-fn read_state_from_file(path: &str) -> Result<WalkInodesEntry, String> {
+fn read_state_file(path: &PathBuf) -> Result<WalkInodesEntry, String> {
     match OpenOptions::new().read(true).open(path) {
         Ok(f) => {
             let mut reader = BufReader::new(&f);
@@ -316,7 +308,7 @@ fn read_state_from_file(path: &str) -> Result<WalkInodesEntry, String> {
         }
         Err(e) => {
             if e.kind() == ErrorKind::NotFound {
-                Err(format!("file not found: {path}"))
+                Err(format!("file not found: {}", path.display()))
             } else {
                 panic!("open: {}\nFailed to open file", e);
             }
@@ -337,16 +329,18 @@ struct Args {
     verbose: bool,
 
     /// State file path (and state swap file)
-    #[arg(short = 'p', long, default_value_t = String::from(".state"))]
-    state_file_path: String,
+    #[arg(short = 'p', long, default_value = ".state")]
+    state_file_path: PathBuf,
 
     /// Root of ScoutFS filesystem
     #[arg(short, long)]
-    root_scoutfs: String,
+    //root_scoutfs: PathBuf,
+    root_scoutfs: PathBuf,
 
     /// Quota state file path
     #[arg(short, long)]
-    quota_state_file_path: String,
+    //quota_state_file_path: PathBuf,
+    quota_state_file_path: PathBuf,
 
     /// Check if the reindexer validated state before proceeding with future batches
     #[arg(long)]
