@@ -10,8 +10,13 @@ fn main() {
     let args = Args::parse();
 
     let FS_ROOT_PATH = args.root_scoutfs;
-    let USER_ROOT_PATH = args.user_root;
     let ENABLE_TRANSLATION = args.translate;
+    let USER_ROOT_PATH = if ENABLE_TRANSLATION {
+        args.user_root.unwrap()
+    }
+    else {
+        String::new()
+    };
 
     eprintln!("Starting tree_manager");
 
@@ -91,7 +96,7 @@ struct Args {
 
     /// Root of User filesystem
     #[arg(short, long)]
-    user_root: String,
+    user_root: Option<String>,
 
     /// Enable path translation from filesystem internal path to user path. If disabled, output
     /// path and fuse_path will be the same.
