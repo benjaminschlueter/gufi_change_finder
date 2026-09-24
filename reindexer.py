@@ -51,9 +51,18 @@ if "MARFS_CONFIG_PATH" not in os.environ:
 # ensure working dir exists and is in a clean state 
 os.makedirs(WORK_DIR, exist_ok=True)
 
-shutil.rmtree(WORK_OLD_DIR)
+try:
+    shutil.rmtree(WORK_OLD_DIR)
+except FileNotFoundError:
+    pass
+
 os.mkdir(WORK_OLD_DIR)
-shutil.rmtree(WORK_REINDEX_DIR)
+
+try: 
+    shutil.rmtree(WORK_REINDEX_DIR)
+except FileNotFoundError:
+    pass
+
 os.mkdir(WORK_REINDEX_DIR)
 
 paths = []
