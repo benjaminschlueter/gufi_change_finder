@@ -9,14 +9,9 @@ use highest_change_tree::*;
 fn main() {
     let args = Args::parse();
 
-    let FS_ROOT_PATH = args.root_scoutfs;
-    let ENABLE_TRANSLATION = args.translate;
-    let USER_ROOT_PATH = if ENABLE_TRANSLATION {
-        args.user_root
-            .expect("path translation is enabled, but the user filesystem path argument is missing")
-    } else {
-        String::new()
-    };
+    let FS_ROOT_PATH = args.root_fs;
+    let USER_ROOT_PATH = args.user_translation_root;
+    let ENABLE_TRANSLATION = !USER_ROOT_PATH.is_empty();
 
     eprintln!("Starting tree_manager");
 
@@ -90,16 +85,12 @@ fn main() {
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Root of ScoutFS filesystem
+    /// Root of internal filesystem tree
     #[arg(short, long)]
-    root_scoutfs: String,
+    root_fs: String,
 
-    /// Root of User filesystem
-    #[arg(short, long)]
-    user_root: Option<String>,
-
-    /// Enable path translation from filesystem internal path to user path. If disabled, output
-    /// path and fuse_path will be the same.
-    #[arg(short, long)]
-    translate: bool,
+    /// Root of user filesystem to translate output paths too. Providing this path enables
+    /// translation. If disabled, internal path and user path will be the same.
+    #[arg(short, long, default_value = "")]
+    user_translation_root: String,
 }
