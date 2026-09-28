@@ -1,17 +1,21 @@
+use std::sync::LazyLock;
+
 use regex::Regex;
 
 /// Returns true if path is an internal component to the MarFS filesystem refrence tree, including
 /// the quota file MDAL_datasize, anything in the reference tree MDAL_reference and the
 /// MDAL_subspaces directory itself.
 pub fn is_internal(marfs_mdal_root: &str, path: &str) -> bool {
-    // matches internal MarFS paths that have no mappings to the user tree
-    let re = Regex::new(&format!(
-        "^{}/(MDAL_subspaces/[^/]+/)*MDAL_([^/]+|reference.*)$",
-        marfs_mdal_root
-    ))
-    .unwrap();
+    static RE: LazyLock<Regex> = LazyLock::new(|| {
+        // matches internal MarFS paths that have no mappings to the user tree
+        Regex::new(&format!(
+          "^{}/(MDAL_subspaces/[^/]+/)*MDAL_([^/]+|reference.*)$",
+          marfs_mdal_root
+        ))
+        .unwrap()
+    });
 
-    re.is_match(path)
+    RE.is_match(path)
 }
 
 /// return: empty on error
