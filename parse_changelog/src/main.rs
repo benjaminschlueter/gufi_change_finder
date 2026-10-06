@@ -19,13 +19,13 @@ fn main() {
 
     let BATCH_SIZE = args.batch_size;
     let STATE_FILE = args.state_file_path;
-    let STATE_SWAP_FILE = STATE_FILE.with_extension("swp");
+    let STATE_SWAP_FILE = STATE_FILE.with_added_extension("swp");
     let VERBOSE = args.verbose;
     let FS_ROOT_PATH = args.root_scoutfs;
     let QUOTA_STATE_FILE = args.quota_state_file_path;
     let VALIDATE_REINDEX = args.validate_reindex;
     let VALIDATE_REINDEX_PATH = if VALIDATE_REINDEX {
-        STATE_FILE.with_extension("reindex_validate")
+        STATE_FILE.with_added_extension("reindex_validate")
     } else {
         PathBuf::new()
     };
