@@ -23,6 +23,7 @@ fn main() {
     let VERBOSE = args.verbose;
     let FS_ROOT_PATH = args.root_scoutfs;
     let QUOTA_STATE_FILE = args.quota_state_file_path;
+    let CHECK_QUOTA_STATE = QUOTA_STATE_FILE == PathBuf::new();
     let VALIDATE_REINDEX = args.validate_reindex;
     let VALIDATE_REINDEX_PATH = if VALIDATE_REINDEX {
         STATE_FILE.with_added_extension("reindex_validate")
@@ -72,15 +73,25 @@ fn main() {
         }
     }
 
-    let quota_state = match read_state_file(&QUOTA_STATE_FILE) {
-        Ok(s) => s,
-        Err(e) => panic!("failed to open quota state file: {e}"),
-    };
+    // read quota tool state
+    let quota_state;
+    if CHECK_QUOTA_STATE {
+        quota_state = match read_state_file(&QUOTA_STATE_FILE) {
+            Ok(s) => s,
+            Err(e) => panic!("failed to open quota state file: {e}"),
+        };
 
-    eprintln!(
-        "INFO\tdetected quota state ({}, {}, {})",
-        quota_state.major, quota_state.ino, quota_state.minor
-    );
+        eprintln!(
+            "INFO\tdetected quota state ({}, {}, {})",
+            quota_state.major, quota_state.ino, quota_state.minor
+        );
+    } else {
+        quota_state = WalkInodesEntry {
+            major: 0,
+            ino: 0,
+            minor: 0,
+        };
+    }
 
     // open fd for filesystem root
 
@@ -167,7 +178,10 @@ fn main() {
             }
 
             // stop if we are going to get ahead of quota_update
-            if entry.major >= quota_state.major && entry.minor >= quota_state.minor {
+            if CHECK_QUOTA_STATE
+                && entry.major >= quota_state.major
+                && entry.minor >= quota_state.minor
+            {
                 eprintln!("INFO\treached quota state: stopping here");
 
                 last_batch = true;
@@ -334,12 +348,10 @@ struct Args {
 
     /// Root of ScoutFS filesystem
     #[arg(short, long)]
-    //root_scoutfs: PathBuf,
     root_scoutfs: PathBuf,
 
     /// Quota state file path
-    #[arg(short, long)]
-    //quota_state_file_path: PathBuf,
+    #[arg(short, long, default_value = "")]
     quota_state_file_path: PathBuf,
 
     /// Check if the reindexer validated state before proceeding with future batches
