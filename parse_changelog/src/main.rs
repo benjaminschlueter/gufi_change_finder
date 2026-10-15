@@ -218,7 +218,7 @@ fn main() {
                         }
                     }
                     Err(e) => {
-                        if std::io::Error::last_os_error().kind() == ErrorKind::NotFound {
+                        if e.kind() == ErrorKind::NotFound {
                             // the filesystem root won't return a valid path; add an empty string here
                             // to handle it
                             if entry.ino == 1 {
