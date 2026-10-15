@@ -20,7 +20,7 @@ use crate::bindings::*;
 
 use std::ffi::CStr;
 use std::fs::File;
-use std::io::Error;
+use std::io::{self, Error};
 use std::os::fd::{AsRawFd, BorrowedFd};
 use std::{mem, slice, str};
 
@@ -136,7 +136,7 @@ pub struct InoPathResult {
 }
 
 /// Provides a path for a file with an inode. Paired with walk_inodes to get change log file paths.
-pub fn ino_path(root_fs: &File, path_arg: InoPath) -> Result<InoPathResult, String> {
+pub fn ino_path(root_fs: &File, path_arg: InoPath) -> io::Result<InoPathResult> {
     // ioctl function buffer
     let result_ptr;
     unsafe {
@@ -156,7 +156,7 @@ pub fn ino_path(root_fs: &File, path_arg: InoPath) -> Result<InoPathResult, Stri
 
     unsafe {
         if wrap_ino_path(root_fs.as_raw_fd(), &mut path_c) == -1 {
-            return Err(Error::last_os_error().to_string());
+            return Err(Error::last_os_error());
         }
     }
 
