@@ -135,10 +135,8 @@ pub struct InoPathResult {
 /// Provides a path for a file with an inode. Paired with walk_inodes to get change log file paths.
 pub fn ino_path(root_fs: &File, path_arg: InoPath) -> Result<InoPathResult, String> {
     // ioctl function buffer
-    let result_ptr;
-    unsafe {
-        result_ptr = libc::calloc(1, STR_BUF_SIZE);
-    }
+    let result_ptr = unsafe { libc::calloc(1, STR_BUF_SIZE) };
+    assert!(!result_ptr.is_null());
 
     let mut path_c = scoutfs_ioctl_ino_path {
         ino: path_arg.ino,
@@ -153,6 +151,7 @@ pub fn ino_path(root_fs: &File, path_arg: InoPath) -> Result<InoPathResult, Stri
 
     unsafe {
         if wrap_ino_path(root_fs.as_raw_fd(), &mut path_c) == -1 {
+            libc::free(result_ptr);
             return Err(Error::last_os_error().to_string());
         }
     }
@@ -171,6 +170,8 @@ pub fn ino_path(root_fs: &File, path_arg: InoPath) -> Result<InoPathResult, Stri
             dir_pos: (*entry_c).dir_pos,
             path: ret_str,
         };
+
+        libc::free(result_ptr);
 
         Ok(ret_struct)
     }
