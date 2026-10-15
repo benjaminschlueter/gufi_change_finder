@@ -40,19 +40,16 @@ fn main() {
 
         // only add paths with user mappings; skip MarFS internals
         if !marfs_pathman::is_internal(rel_path) {
-            ChangeTree::add_path(
-                &mut tree,
-                TreeData {
-                    path: rel_path.to_string(),
-                    ino,
-                },
-            );
+            tree.add_path(TreeData {
+                path: rel_path.to_string(),
+                ino,
+            });
         }
     }
 
     // Finished adding to tree
 
-    let parent_list = ChangeTree::parse_leaves(&tree);
+    let parent_list = tree.parse_leaves();
 
     for mut item in parent_list {
         // generate fuse path here to keep filtering/translation in one place

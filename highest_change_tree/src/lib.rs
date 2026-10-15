@@ -48,21 +48,21 @@ impl ChangeTree {
     }
 
     ///The full process of adding a node with a path to the tree and trimming when necessary.
-    pub fn add_path(tree: &mut ChangeTree, data: TreeData) {
+    pub fn add_path(&mut self, data: TreeData) {
         let path_vec: Vec<&str> = data.path.split('/').collect();
 
-        let mut cur_node = tree.root;
+        let mut cur_node = self.root;
         let mut child;
         let path_vec_last = path_vec[path_vec.len() - 1];
 
         for entry in &path_vec {
             // check if cur_node has child named entry
             if let Some(c) = cur_node
-                .children(&tree.arena)
-                .find(|&child| *tree.arena[child].get().path == *entry.to_owned())
+                .children(&self.arena)
+                .find(|&child| *self.arena[child].get().path == *entry.to_owned())
             {
                 // if leaf, break because this is already being rescanned
-                if c.children(&tree.arena).count() == 0 {
+                if c.children(&self.arena).count() == 0 {
                     break;
                 }
 
@@ -70,23 +70,23 @@ impl ChangeTree {
             }
             // node not found: add it
             else {
-                child = tree.arena.new_node(TreeData {
+                child = self.arena.new_node(TreeData {
                     path: entry.to_string(),
                     ino: data.ino,
                 });
 
                 // add new child to cur_node
-                cur_node.append(child, &mut tree.arena);
+                cur_node.append(child, &mut self.arena);
 
                 // check if cur_node has too many children
-                let child_count = cur_node.children(&tree.arena).count();
+                let child_count = cur_node.children(&self.arena).count();
 
                 if child_count > MAX_CHILD_COUNT {
                     // trim if node has too many children and just rescan that node
 
                     // remove all children and grand children of cur_node
 
-                    Self::trim_below(tree, cur_node);
+                    Self::trim_below(self, cur_node);
 
                     // cur_node becomes a leaf and no more children will be added
 
@@ -95,8 +95,8 @@ impl ChangeTree {
             }
 
             // if child is at bottom, trim below if node has children
-            if *entry == path_vec_last && child.children(&tree.arena).count() > 0 {
-                Self::trim_below(tree, child);
+            if *entry == path_vec_last && child.children(&self.arena).count() > 0 {
+                Self::trim_below(self, child);
             }
 
             // update cur_node for next iteration
@@ -105,11 +105,11 @@ impl ChangeTree {
     }
 
     /// Trims all nodes below node with NodeId. A helper for add_path.
-    fn trim_below(tree: &mut ChangeTree, node: NodeId) {
-        let children: Vec<NodeId> = node.children(&tree.arena).collect();
+    fn trim_below(&mut self, node: NodeId) {
+        let children: Vec<NodeId> = node.children(&self.arena).collect();
 
         for c in children {
-            c.remove_subtree(&mut tree.arena);
+            c.remove_subtree(&mut self.arena);
         }
     }
 
