@@ -121,8 +121,6 @@ pub struct InoPath {
     pub ino: u64,
     pub dir_ino: u64,
     pub dir_pos: u64,
-    pub result_ptr: u64,
-    pub result_bytes: usize,
 }
 
 /// Result output for INO_PATH ioctl function
@@ -131,7 +129,6 @@ pub struct InoPathResult {
     pub ino: u64,
     pub dir_ino: u64,
     pub dir_pos: u64,
-    pub path_bytes: u16,
     pub path: String,
 }
 
@@ -172,7 +169,6 @@ pub fn ino_path(root_fs: &File, path_arg: InoPath) -> Result<InoPathResult, Stri
             ino: path_arg.ino,
             dir_ino: (*entry_c).dir_ino,
             dir_pos: (*entry_c).dir_pos,
-            path_bytes: path_arg.result_bytes as u16,
             path: ret_str,
         };
 

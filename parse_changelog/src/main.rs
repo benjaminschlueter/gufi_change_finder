@@ -193,8 +193,6 @@ fn main() {
                 ino: entry.ino,
                 dir_ino: 0,
                 dir_pos: 0,
-                result_ptr: 0,
-                result_bytes: STR_BUF_SIZE,
             };
 
             // call ino_path ioctl until all paths to inode are found
