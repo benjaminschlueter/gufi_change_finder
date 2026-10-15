@@ -47,7 +47,7 @@ pub struct WalkInodes {
 
 /// Allocates and populates the entries_vec in user_arg to contain nr_entries entry structs from inodes within the minor:major range. This function allocates the buffer. The caller does not have to worry about setting up a buffer.
 /// Moves the callers struct inside, modifies and returns it.
-pub fn walk_inodes(root_fs: &File, mut user_arg: WalkInodes) -> Result<WalkInodes, String> {
+pub fn walk_inodes(root_fs: &File, mut user_arg: WalkInodes) -> io::Result<WalkInodes> {
     // create scoutfs_ioctl_walk_inodes and entries structs
 
     let first_c = scoutfs_ioctl_walk_inodes_entry {
@@ -71,7 +71,7 @@ pub fn walk_inodes(root_fs: &File, mut user_arg: WalkInodes) -> Result<WalkInode
             mem::size_of::<scoutfs_ioctl_walk_inodes_entry>(),
         );
         if entries_ptr.is_null() {
-            return Err(String::from("calloc: ") + &Error::last_os_error().to_string());
+            return Err(Error::last_os_error());
         }
     }
 
@@ -88,7 +88,7 @@ pub fn walk_inodes(root_fs: &File, mut user_arg: WalkInodes) -> Result<WalkInode
     let entries_c;
     unsafe {
         if wrap_walk_inodes(root_fs.as_raw_fd(), &mut user) == -1 {
-            return Err(Error::last_os_error().to_string());
+            return Err(Error::last_os_error());
         }
 
         // takes ownership of the calloc buffer and will drop it
