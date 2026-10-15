@@ -156,25 +156,31 @@ pub fn ino_path(root_fs: &File, path_arg: InoPath) -> Result<InoPathResult, Stri
         }
     }
 
-    // get string from return buffer
+    // SAFETY: the pointer is aligned because it was allocated with libc's allocator. It is non-null
+    // because that is asserted earlier in the function. The object is valid because it consists
+    // entirely of integers which are initialized by the call to wrap_ino_path() above. It is safe
+    // to create a shared reference because the object is never mutated again in this function.
+    let entry_c = unsafe { &*(result_ptr as *mut scoutfs_ioctl_ino_path_result) };
+
+    let path_ptr = entry_c.path.as_ptr() as *const i8;
+
+    // SAFETY: the pointer contents are a NUL-terminated string, according to the scoutFS ioctl
+    // documentation.  The pointer is valid because it is initialized by the libc allocator above
+    // and is checked to be non-null. The contents are never mutated.
+    let ret_str = unsafe { CStr::from_ptr(path_ptr) };
+
+    let ret_struct = InoPathResult {
+        ino: path_arg.ino,
+        dir_ino: entry_c.dir_ino,
+        dir_pos: entry_c.dir_pos,
+        path: ret_str.to_str().unwrap().to_owned(),
+    };
+
     unsafe {
-        let entry_c = path_c.result_ptr as *mut scoutfs_ioctl_ino_path_result;
-
-        let path_ptr = (*entry_c).path.as_ptr() as *const i8;
-
-        let ret_str = CStr::from_ptr(path_ptr).to_str().unwrap().to_owned();
-
-        let ret_struct = InoPathResult {
-            ino: path_arg.ino,
-            dir_ino: (*entry_c).dir_ino,
-            dir_pos: (*entry_c).dir_pos,
-            path: ret_str,
-        };
-
         libc::free(result_ptr);
-
-        Ok(ret_struct)
     }
+
+    Ok(ret_struct)
 }
 
 /// Input arg for listxattr_hidden ioctl
