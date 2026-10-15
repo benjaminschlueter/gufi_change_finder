@@ -2,6 +2,7 @@
 
 use scoutwrap::*;
 
+use std::ffi::OsString;
 use std::fs::OpenOptions;
 use std::io::ErrorKind;
 use std::io::{BufReader, Read, Write};
@@ -193,8 +194,6 @@ fn main() {
                 ino: entry.ino,
                 dir_ino: 0,
                 dir_pos: 0,
-                result_ptr: 0,
-                result_bytes: STR_BUF_SIZE,
             };
 
             // call ino_path ioctl until all paths to inode are found
@@ -222,7 +221,7 @@ fn main() {
                             // the filesystem root won't return a valid path; add an empty string here
                             // to handle it
                             if entry.ino == 1 {
-                                ino_path_vec.push(String::new());
+                                ino_path_vec.push(OsString::new());
                             }
 
                             // handle a case where a deleted files inode will still show up in the changelog
@@ -238,7 +237,11 @@ fn main() {
             // handle all paths to inode from hard links
             for path in ino_path_vec {
                 // print inodes and paths to stdout and all logs to stderr
-                println!("{}/{}\t\0{}", FS_ROOT_PATH.display(), path, entry.ino);
+                print!("{}/", FS_ROOT_PATH.display());
+                std::io::stdout()
+                    .write_all(path.as_encoded_bytes())
+                    .unwrap();
+                println!("\t\0{}", entry.ino);
 
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
 

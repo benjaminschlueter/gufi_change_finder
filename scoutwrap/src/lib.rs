@@ -18,10 +18,13 @@ pub mod bindings {
 
 use crate::bindings::*;
 
-use std::ffi::CStr;
+use std::ffi::{CStr, OsStr, OsString};
 use std::fs::File;
 use std::io::Error;
-use std::os::fd::{AsRawFd, BorrowedFd};
+use std::os::{
+    fd::{AsRawFd, BorrowedFd},
+    unix::ffi::OsStrExt,
+};
 use std::{mem, slice, str};
 
 pub const STR_BUF_SIZE: usize = 512;
@@ -121,8 +124,6 @@ pub struct InoPath {
     pub ino: u64,
     pub dir_ino: u64,
     pub dir_pos: u64,
-    pub result_ptr: u64,
-    pub result_bytes: usize,
 }
 
 /// Result output for INO_PATH ioctl function
@@ -131,17 +132,14 @@ pub struct InoPathResult {
     pub ino: u64,
     pub dir_ino: u64,
     pub dir_pos: u64,
-    pub path_bytes: u16,
-    pub path: String,
+    pub path: OsString,
 }
 
 /// Provides a path for a file with an inode. Paired with walk_inodes to get change log file paths.
 pub fn ino_path(root_fs: &File, path_arg: InoPath) -> Result<InoPathResult, String> {
     // ioctl function buffer
-    let result_ptr;
-    unsafe {
-        result_ptr = libc::calloc(1, STR_BUF_SIZE);
-    }
+    let result_ptr = unsafe { libc::calloc(1, STR_BUF_SIZE) };
+    assert!(!result_ptr.is_null());
 
     let mut path_c = scoutfs_ioctl_ino_path {
         ino: path_arg.ino,
@@ -156,28 +154,36 @@ pub fn ino_path(root_fs: &File, path_arg: InoPath) -> Result<InoPathResult, Stri
 
     unsafe {
         if wrap_ino_path(root_fs.as_raw_fd(), &mut path_c) == -1 {
+            libc::free(result_ptr);
             return Err(Error::last_os_error().to_string());
         }
     }
 
-    // get string from return buffer
+    // SAFETY: the pointer is aligned because it was allocated with libc's allocator. It is non-null
+    // because that is asserted earlier in the function. The object is valid because it consists
+    // entirely of integers which are initialized by the call to wrap_ino_path() above. It is safe
+    // to create a shared reference because the object is never mutated again in this function.
+    let entry_c = unsafe { &*(result_ptr as *mut scoutfs_ioctl_ino_path_result) };
+
+    let path_ptr = entry_c.path.as_ptr() as *const i8;
+
+    // SAFETY: the pointer contents are a NUL-terminated string, according to the scoutFS ioctl
+    // documentation.  The pointer is valid because it is initialized by the libc allocator above
+    // and is checked to be non-null. The contents are never mutated.
+    let ret_str = unsafe { CStr::from_ptr(path_ptr) };
+
+    let ret_struct = InoPathResult {
+        ino: path_arg.ino,
+        dir_ino: entry_c.dir_ino,
+        dir_pos: entry_c.dir_pos,
+        path: OsStr::from_bytes(ret_str.to_bytes()).to_owned(),
+    };
+
     unsafe {
-        let entry_c = path_c.result_ptr as *mut scoutfs_ioctl_ino_path_result;
-
-        let path_ptr = (*entry_c).path.as_ptr() as *const i8;
-
-        let ret_str = CStr::from_ptr(path_ptr).to_str().unwrap().to_owned();
-
-        let ret_struct = InoPathResult {
-            ino: path_arg.ino,
-            dir_ino: (*entry_c).dir_ino,
-            dir_pos: (*entry_c).dir_pos,
-            path_bytes: path_arg.result_bytes as u16,
-            path: ret_str,
-        };
-
-        Ok(ret_struct)
+        libc::free(result_ptr);
     }
+
+    Ok(ret_struct)
 }
 
 /// Input arg for listxattr_hidden ioctl
