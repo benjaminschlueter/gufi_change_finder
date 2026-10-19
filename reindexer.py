@@ -75,7 +75,7 @@ for line in sys.stdin:
     # Gufi Change Finder outputs inode too: drop that part of the string    
     # path[0]: MarFS reference path
     # path[1]: FUSE path with MarFS internals removed
-    paths.append((line.split("\t\0")[0], line.split("\t\0")[2]))
+    paths.append((line.split("\t\0")[0], line.split("\t\0")[1]))
 
 
 # Generate new GUFI index for each path

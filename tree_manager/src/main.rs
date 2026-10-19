@@ -20,19 +20,11 @@ fn main() {
 
     let mut tree = ChangeTree::new(TreeData {
         path: FS_ROOT_PATH.clone(),
-        ino: 1,
     });
 
     // input lines should be formatted like path\t\0ino
     for line in reader.lines() {
-        let line_vec: Vec<String> = line.unwrap().split("\t\0").map(|s| s.to_string()).collect();
-
-        if line_vec.len() != 2 {
-            panic!("malformed input: line does not contain exactly one null separator");
-        }
-
-        let path = &line_vec[0];
-        let ino: u64 = line_vec[1].parse().unwrap();
+        let path = line.unwrap();
 
         let rel_path = path
             .strip_prefix(&format!("{FS_ROOT_PATH}/"))
@@ -44,7 +36,6 @@ fn main() {
                 &mut tree,
                 TreeData {
                     path: rel_path.to_string(),
-                    ino,
                 },
             );
         }
@@ -57,25 +48,21 @@ fn main() {
     for mut item in parent_list {
         // generate fuse path here to keep filtering/translation in one place
         if ENABLE_TRANSLATION {
-            if item.tree_data.path == FS_ROOT_PATH {
+            if item.internal_path == FS_ROOT_PATH {
                 item.fuse_path = marfs_pathman::internal_to_user(&USER_ROOT_PATH, "");
             } else {
                 item.fuse_path = marfs_pathman::internal_to_user(
                     &USER_ROOT_PATH,
-                    item.tree_data
-                        .path
+                    item.internal_path
                         .strip_prefix(&format!("{FS_ROOT_PATH}/"))
                         .expect("failed to remove root path prefix"),
                 );
             }
         } else {
-            item.fuse_path = item.tree_data.path.clone();
+            item.fuse_path = item.internal_path.clone();
         }
 
-        println!(
-            "{}\t\0{}\t\0{}",
-            item.tree_data.path, item.tree_data.ino, item.fuse_path
-        );
+        println!("{}\t\0{}", item.internal_path, item.fuse_path);
     }
 
     eprintln!("Finished tree_manager");

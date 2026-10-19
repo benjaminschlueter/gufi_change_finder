@@ -22,14 +22,13 @@ const MAX_CHILD_COUNT: usize = 1024; // if a node has more than this many childr
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OutputListData {
-    pub tree_data: TreeData,
+    pub internal_path: String,
     pub fuse_path: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TreeData {
     pub path: String,
-    pub ino: u64,
 }
 
 #[derive(Debug)]
@@ -72,7 +71,6 @@ impl ChangeTree {
             else {
                 child = tree.arena.new_node(TreeData {
                     path: entry.to_string(),
-                    ino: data.ino,
                 });
 
                 // add new child to cur_node
@@ -151,10 +149,7 @@ impl ChangeTree {
 
                 // add leaf directories and parents of files
                 parent_list.push(OutputListData {
-                    tree_data: TreeData {
-                        path: partial_path_new.clone(),
-                        ino: self.arena[child].get().ino,
-                    },
+                    internal_path: partial_path_new.clone(), // output list contains absolute path
                     fuse_path,
                 });
 
@@ -175,20 +170,159 @@ impl ChangeTree {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn all() {
-        let tree = ChangeTree::new(TreeData {
-            path: String::from("/var/marfs/mdal-root/sec-root"),
-            ino: 1,
+    fn highest_change_tree_all() {
+        let fs_root = format!("{}/tests", env!("CARGO_MANIFEST_DIR"));
+
+        create_test_path(&fs_root);
+
+        let mut tree = ChangeTree::new(TreeData {
+            path: fs_root.clone(),
         });
 
-        // breaks because when the tree is just the root with no children, the parse_leaves function will immediately return. This is not a case that will appear in a natural workflow of GUFI change finder. But should still work as intended.
-        // assert_eq!(tree.parse_leaves(), vec![OutputListData { tree_data: TreeData { path: String::from("/var/marfs/mdal-root/sec-root"), ino: 1 }, fuse_path: String::new() }]);
+        let path = "a";
+        ChangeTree::add_path(
+            &mut tree,
+            TreeData {
+                path: String::from(path),
+            },
+        );
+        create_test_path(&format!("{}/{}", &fs_root, path));
+        assert_eq!(
+            tree.parse_leaves(),
+            vec![OutputListData {
+                internal_path: format!("{}/a", fs_root),
+                fuse_path: String::new()
+            }]
+        );
+
+        // add a path below a: a remains a leaf
+        let path = "a/b";
+        ChangeTree::add_path(
+            &mut tree,
+            TreeData {
+                path: String::from(path),
+            },
+        );
+        create_test_path(&format!("{}/{}", &fs_root, path));
+        assert_eq!(
+            tree.parse_leaves(),
+            vec![OutputListData {
+                internal_path: format!("{}/a", fs_root),
+                fuse_path: String::new()
+            }]
+        );
+
+        // add new branch from root 2 deep: output should include c/d
+        let path = "c/d";
+        ChangeTree::add_path(
+            &mut tree,
+            TreeData {
+                path: String::from(path),
+            },
+        );
+        create_test_path(&format!("{}/{}", &fs_root, path));
+        assert_eq!(
+            tree.parse_leaves(),
+            vec![
+                OutputListData {
+                    internal_path: format!("{}/a", fs_root),
+                    fuse_path: String::new()
+                },
+                OutputListData {
+                    internal_path: format!("{}/c/d", fs_root),
+                    fuse_path: String::new()
+                }
+            ]
+        );
+
+        // add new branch in c: output should include the new branch
+        let path = "c/e";
+        ChangeTree::add_path(
+            &mut tree,
+            TreeData {
+                path: String::from(path),
+            },
+        );
+        create_test_path(&format!("{}/{}", &fs_root, path));
+        assert_eq!(
+            tree.parse_leaves(),
+            vec![
+                OutputListData {
+                    internal_path: format!("{}/a", fs_root),
+                    fuse_path: String::new()
+                },
+                OutputListData {
+                    internal_path: format!("{}/c/d", fs_root),
+                    fuse_path: String::new()
+                },
+                OutputListData {
+                    internal_path: format!("{}/c/e", fs_root),
+                    fuse_path: String::new()
+                }
+            ]
+        );
+
+        // add same path again: output should stay the same
+        let path = "c/e";
+        ChangeTree::add_path(
+            &mut tree,
+            TreeData {
+                path: String::from(path),
+            },
+        );
+        create_test_path(&format!("{}/{}", &fs_root, path));
+        assert_eq!(
+            tree.parse_leaves(),
+            vec![
+                OutputListData {
+                    internal_path: format!("{}/a", fs_root),
+                    fuse_path: String::new()
+                },
+                OutputListData {
+                    internal_path: format!("{}/c/d", fs_root),
+                    fuse_path: String::new()
+                },
+                OutputListData {
+                    internal_path: format!("{}/c/e", fs_root),
+                    fuse_path: String::new()
+                }
+            ]
+        );
+
+        // add path above the leaves: this node should become a new leaf
+        let path = "c";
+        ChangeTree::add_path(
+            &mut tree,
+            TreeData {
+                path: String::from(path),
+            },
+        );
+        create_test_path(&format!("{}/{}", &fs_root, path));
+        assert_eq!(
+            tree.parse_leaves(),
+            vec![
+                OutputListData {
+                    internal_path: format!("{}/a", fs_root),
+                    fuse_path: String::new()
+                },
+                OutputListData {
+                    internal_path: format!("{}/c", fs_root),
+                    fuse_path: String::new()
+                }
+            ]
+        );
+    }
+
+    fn create_test_path(path: &str) {
+        if let Err(e) = fs::create_dir_all(path) {
+            if e.kind() != std::io::ErrorKind::AlreadyExists {
+                panic!("failed to create test dir {}: {}", path, e);
+            }
+        }
     }
 }
-*/

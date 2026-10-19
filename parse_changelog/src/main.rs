@@ -238,7 +238,7 @@ fn main() {
             // handle all paths to inode from hard links
             for path in ino_path_vec {
                 // print inodes and paths to stdout and all logs to stderr
-                println!("{}/{}\t\0{}", FS_ROOT_PATH.display(), path, entry.ino);
+                println!("{}/{}", FS_ROOT_PATH.display(), path);
 
                 // set final state to the last file processed. This means the last file will be processed again in the next run, but this tool is idempotent.
 
