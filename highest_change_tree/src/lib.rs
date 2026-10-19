@@ -46,13 +46,19 @@ impl ChangeTree {
         Self { arena, root }
     }
 
-    ///The full process of adding a node with a path to the tree and trimming when necessary.
+    /// The full process of adding a node with a path to the tree and trimming when necessary. Paths should be relative to the root node. Expects an empty string to represent the filesystem root.
     pub fn add_path(tree: &mut ChangeTree, data: TreeData) {
         let path_vec: Vec<&str> = data.path.split('/').collect();
 
         let mut cur_node = tree.root;
         let mut child;
         let path_vec_last = path_vec[path_vec.len() - 1];
+
+        // check for root first
+        if data.path.is_empty() {
+            Self::trim_below(tree, tree.root);
+            return;
+        }
 
         for entry in &path_vec {
             // check if cur_node has child named entry
@@ -115,11 +121,19 @@ impl ChangeTree {
     pub fn parse_leaves(&self) -> Vec<OutputListData> {
         let mut parent_list = Vec::new();
 
-        self.parse_leaves_inner(
-            self.root,
-            &mut parent_list,
-            self.arena[self.root].get().path.clone(),
-        );
+        // check if tree is only root
+        if self.root.children(&self.arena).count() == 0 {
+            parent_list.push(OutputListData {
+                internal_path: self.arena[self.root].get().path.clone(),
+                fuse_path: String::new(),
+            });
+        } else {
+            self.parse_leaves_inner(
+                self.root,
+                &mut parent_list,
+                self.arena[self.root].get().path.clone(),
+            );
+        }
 
         parent_list
     }
@@ -183,6 +197,30 @@ mod tests {
         let mut tree = ChangeTree::new(TreeData {
             path: fs_root.clone(),
         });
+
+        // test with only root in tree
+        assert_eq!(
+            tree.parse_leaves(),
+            vec![OutputListData {
+                internal_path: format!("{}", fs_root),
+                fuse_path: String::new()
+            }]
+        );
+
+        // make sure adding root in an only root tree works; root takes form of empty string
+        ChangeTree::add_path(
+            &mut tree,
+            TreeData {
+                path: String::from(""),
+            },
+        );
+        assert_eq!(
+            tree.parse_leaves(),
+            vec![OutputListData {
+                internal_path: format!("{}", fs_root),
+                fuse_path: String::new()
+            }]
+        );
 
         let path = "a";
         ChangeTree::add_path(
@@ -315,6 +353,21 @@ mod tests {
                     fuse_path: String::new()
                 }
             ]
+        );
+
+        // add root to trim all below root
+        ChangeTree::add_path(
+            &mut tree,
+            TreeData {
+                path: String::from(""),
+            },
+        );
+        assert_eq!(
+            tree.parse_leaves(),
+            vec![OutputListData {
+                internal_path: format!("{}", fs_root),
+                fuse_path: String::new()
+            }]
         );
     }
 
