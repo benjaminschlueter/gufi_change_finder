@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright 2025. Triad National Security, LLC.
+
 use std::{path::PathBuf, process::Command};
 
 const SCOUTWRAP_PATH: &str = "src/scoutwrap";

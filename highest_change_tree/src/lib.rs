@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright 2025. Triad National Security, LLC.
+
 //! Description:
 //! This library provides an interface to create and manage a tree with leaves that represent the
 //! highest directories in which changes occured in a filesystem. It is intended to receive path

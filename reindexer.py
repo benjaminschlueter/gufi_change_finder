@@ -1,5 +1,8 @@
 #!/usr/bin/python3
 
+# SPDX-License-Identifier: MIT
+# Copyright 2025. Triad National Security, LLC.
+
 import sys
 import os
 import stat

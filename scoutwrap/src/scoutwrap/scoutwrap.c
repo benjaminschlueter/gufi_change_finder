@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright 2025. Triad National Security, LLC.
+
 /* The ScoutFS ioctl is kernel code and does not provide a library that Rust can link to.
  * This file serves as a wrapper for the ioctl and any ScoutFS code that needs to be called
  * from C.
