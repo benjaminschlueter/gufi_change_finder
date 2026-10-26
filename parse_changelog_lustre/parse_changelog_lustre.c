@@ -71,7 +71,7 @@ int parse_args(int argc, char *argv[])
 	return 0;
 
 usage:
-	printf("Usage: %s --mdt MDT --consumer_id CONSUMER [--file LOG_FILE] [--max_records N] [--keep]\n", argv[0]);
+	fprintf(stderr, "Usage: %s --mdt MDT --consumer_id CONSUMER [--file LOG_FILE] [--max_records N] [--keep]\n", argv[0]);
 	return 1;
 }
 
@@ -139,7 +139,7 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 
 			}
 			else {
-				if (llapi_fid2path_at(mnt_fd, &rec->cr_pfid, path_buf, PATH_MAX, &recno, &linkno)) {
+				if (llapi_fid2path_at(mnt_fd, &rec->cr_pfid, path_buf, PATH_MAX, NULL, &linkno)) {
 					perror("llapi_fid2path_at");
 				}
 			}
@@ -210,7 +210,7 @@ int main(int argc, char *argv[])
 	// get file descriptor for lustre mount point 
 	char* suffix = strstr(args.mdt_name, "-MDT");
 	if (suffix == NULL) {
-		printf("%s is not a valid MDT name", args.mdt_name);
+		fprintf(stderr, "%s is not a valid MDT name", args.mdt_name);
 		return -1;
 	}
 
