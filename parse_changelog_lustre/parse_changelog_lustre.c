@@ -154,7 +154,7 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 
 
 			// print parent
-			if (dprintf(log_fd, "%s/%s\n", mnt_path, path_buf) < 0) {
+			if (args.filename_set && dprintf(log_fd, "%s/%s\n", mnt_path, path_buf) < 0) {
 				perror("dprintf");
 				return -1;
 			}
