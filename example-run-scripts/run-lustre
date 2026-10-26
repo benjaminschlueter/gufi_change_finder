@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# uniq reduces repeated output from the lustre changelog
+
+sudo LD_LIBRARY_PATH=/home/benja/lustre-release/lustre/utils/.libs ./parse_changelog_lustre --mdt lustre-MDT0000 --consumer_id cl1-root --file log | uniq
+
+# tree and reindex
+
+# the log file needs to be removed after the completion of reindexer in each run or its entries will be printed again in the next run 
+
+rm -rf log

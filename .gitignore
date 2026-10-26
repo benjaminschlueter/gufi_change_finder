@@ -11,3 +11,4 @@
 /.cargo
 /vendor
 /.state.reindex_validate
+/parse_changelog_lustre/parse_changelog_lustre
