@@ -23,7 +23,7 @@ int parse_args(int argc, char *argv[])
 {
 	int opt;
 
-	args.filename = "/dev/stdout";
+	args.filename = "/dev/null";
 	args.max_records = UINT64_MAX;
 
 	static struct option long_options[] = {
@@ -192,16 +192,13 @@ int main(int argc, char *argv[])
 	int log_fd;
 	int mnt_fd;
 	long long startrec = 0;
+	FILE* log_fp;
 
 	if (parse_args(argc, argv)) {
 		return EXIT_FAILURE;
 	}
 
-	log_fd = open(args.filename, O_RDWR|O_APPEND|O_CREAT, 0644);
-	if (log_fd < 0) {
-		fprintf(stderr, "Error opening file %s: %s\n", args.filename, strerror(errno));
-		return EXIT_FAILURE;
-	}
+	
 	
 	// get file descriptor for lustre mount point 
 	char* suffix = strstr(args.mdt_name, "-MDT");
@@ -226,14 +223,23 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	// print all files from log before parsing new changelog entries 
-	FILE *log_fp = fdopen(log_fd, "r");
+	log_fd = open(args.filename, O_RDWR|O_APPEND|O_CREAT, 0644);
+	if (log_fd < 0) {
+		fprintf(stderr, "Error opening file %s: %s\n", args.filename, strerror(errno));
+		return EXIT_FAILURE;
+	}
 
-	char *line = NULL;
-	size_t cap = 0;
+	if (args.filename_set) {
+		// print all files from log before parsing new changelog entries 
+		log_fp = fdopen(log_fd, "r");
 
-	while (getline(&line, &cap, log_fp) != -1) {
-		    printf("%s", line);
+		char *line = NULL;
+		size_t cap = 0;
+
+		while (getline(&line, &cap, log_fp) != -1) {
+			    printf("%s", line);
+		}
+
 	}
 	
 	rc = llapi_changelog_start(&changelog_priv,
@@ -250,8 +256,11 @@ int main(int argc, char *argv[])
 	llapi_changelog_fini(&changelog_priv);
 
 close:
-	fclose(log_fp); // closes log_fd too
 	close(mnt_fd);
+
+	if (args.filename_set) {
+		fclose(log_fp);
+	}
 
 	return rc ? EXIT_FAILURE : EXIT_SUCCESS;
 }
