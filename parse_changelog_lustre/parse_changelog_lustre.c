@@ -115,14 +115,6 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 			continue;
 		}
 
-		char* path_buf = calloc(PATH_MAX, sizeof(char));
-		char* parent_buf = calloc(PATH_MAX, sizeof(char));
-
-		if (path_buf == NULL) {
-			perror("calloc");
-			return -1;
-		}
-		
 		long long recno = -1;
 		int linkno = 0;
 		int linktmp = 0;	
@@ -130,6 +122,9 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 		// print all paths associated with fid
 		while (1) {
 			
+			char path_buf[PATH_MAX];
+			char parent_buf[PATH_MAX]; 
+
 			// try to get pfid first
 			if (llapi_fid2path_at(mnt_fd, &rec->cr_pfid, path_buf, PATH_MAX, &recno, &linkno)) {
 				// if pfid doesn't exist, get target fid and call dirname
@@ -137,10 +132,12 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 					perror("llapi_fid2path_at");
 					return -1;
 				}
-
-				parent_buf = dirname(path_buf);
-				memset(path_buf, 0, PATH_MAX);
-				memcpy(path_buf, parent_buf, PATH_MAX);
+					
+				// update path_buf to have parent path produced by dirname()
+				char path_buf_copy[PATH_MAX];
+				snprintf(path_buf_copy, sizeof(path_buf_copy), "%s", path_buf);
+				char *parent_path = dirname(path_buf_copy);
+				snprintf(path_buf, PATH_MAX, "%s", parent_path);
 			}
 
 			// clean up path
@@ -150,7 +147,11 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 
 
 			// print parent
-			dprintf(log_fd, "%s/%s\n", mnt_path, path_buf);
+			if (dprintf(log_fd, "%s/%s\n", mnt_path, path_buf) < 0) {
+				perror("dprintf");
+				return -1;
+			}
+
 			printf("%s/%s\n", mnt_path, path_buf);
 
 			if (linkno == linktmp) {
@@ -160,7 +161,9 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 			linktmp = linkno;
 
 		}
-	
+
+		llapi_changelog_free(&rec);
+
 	}
 
 	if (args.filename_set) {
@@ -216,6 +219,8 @@ int main(int argc, char *argv[])
 	if (llapi_search_rootpath(mnt_path, fs_name)) {
 		perror("llapi_search_rootpath");
 	}
+
+	free(fs_name);
 
 	mnt_fd = open(mnt_path, O_RDONLY|O_DIRECTORY);
 	if (mnt_fd < 0) {
