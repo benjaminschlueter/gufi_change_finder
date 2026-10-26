@@ -2,9 +2,11 @@
 // Copyright 2025. Triad National Security, LLC.
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <getopt.h>
 #include <libgen.h>
 #include <limits.h>
+#include <string.h>
 
 #include "lustre/lustreapi.h"
 
@@ -82,7 +84,7 @@ usage:
  *
  * Returns 0 for success, or -1 if any errors were observed.
  */
-int process_records(void *changelog_priv, int mnt_fd, int log_fd)
+int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path)
 {
 	struct changelog_rec *rec;
 	int num_records = 0;
@@ -128,14 +130,28 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd)
 		// print all paths associated with fid
 		while (1) {
 			
-			if (llapi_fid2path_at(mnt_fd, &rec->cr_tfid, path_buf, PATH_MAX, &recno, &linkno)) {
-				perror("llapi_fid2path_at");
+			// try to get pfid first
+			if (llapi_fid2path_at(mnt_fd, &rec->cr_pfid, path_buf, PATH_MAX, &recno, &linkno)) {
+				// if pfid doesn't exist, get target fid and call dirname
+				if (llapi_fid2path_at(mnt_fd, &rec->cr_tfid, path_buf, PATH_MAX, &recno, &linkno)) {
+					perror("llapi_fid2path_at");
+					return -1;
+				}
+
+				parent_buf = dirname(path_buf);
+				memset(path_buf, 0, PATH_MAX);
+				memcpy(path_buf, parent_buf, PATH_MAX);
 			}
 
+			// clean up path
+			if (strcmp(path_buf, "/") == 0 || strcmp(path_buf, ".") == 0) {
+				memset(path_buf, 0, PATH_MAX);
+			}
+
+
 			// print parent
-			parent_buf = dirname(path_buf);
-			dprintf(log_fd, "%s\n", parent_buf);
-			printf("%s\n", parent_buf);
+			dprintf(log_fd, "%s/%s\n", mnt_path, path_buf);
+			printf("%s/%s\n", mnt_path, path_buf);
 
 			if (linkno == linktmp) {
 				break;
@@ -229,7 +245,7 @@ int main(int argc, char *argv[])
 		goto close;
 	}
 
-	rc = process_records(changelog_priv, mnt_fd, log_fd);
+	rc = process_records(changelog_priv, mnt_fd, log_fd, mnt_path);
 
 	llapi_changelog_fini(&changelog_priv);
 
