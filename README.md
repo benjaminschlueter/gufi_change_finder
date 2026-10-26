@@ -16,17 +16,19 @@ The scoutwrap C ioctl wrapper is automatically compiled by the build script.
 
 Also requires a GUFI build to target for reindexing. 
 
+### parse_changelog_lustre
+
+This is a C program build on existing lustre changelog infrastructure. It must be manually compiled with the Makefile.
+
 ## Running
 
 Must run parse_changelog as root because it calls the ScoutFS ioctl.
 
-It is highly recommended to create a runscript or systemd service to that contains the desired piped workflow desired. 
-
-A ScoutFS filesystem must be mounted. 
+It is highly recommended to create a runscript or systemd service to that contains the desired piped workflow desired. Examples are provided in the example-runscripts directory. 
 
 ## Workflow Components 
 
-This workflow has three compoents. The parse_changelog crate prints inodes and paths of files that have changed since the last run. The tree_manager crate reads inodes/paths and outputs leaves of a tree which are the highest directories that changed. The reindexer python script generates updated subtree indices and pivots them into the existing index. 
+This workflow has three components. The parse_changelog crate prints inodes and paths of files that have changed since the last run. The tree_manager crate reads inodes/paths and outputs leaves of a tree which are the highest directories that changed. The reindexer python script generates updated subtree indices and pivots them into the existing index. 
 
 ### parse_changelog
 
@@ -37,6 +39,12 @@ To start from the beginning of the changelog, write 0\n0\n0 to the state file.
 To ignore the quota state, point the quota state file argument at a file with very large integers MAX\nMAX\nMAX. 
 
 parse_changelog writes a temporary state file on completion, which is then renamed over the previous state file when the reindexer exits cleanly and this changelog batch has been reindexed successfully. 
+
+### parse_changelog_lustre
+
+Uses the Lustre API to get lustre changelog entries from an MDT and registered user. The changelog is cleared after parse_changlog_lustre finishes unless the --keep argument is used. 
+
+Uses a log file to temporarily store paths that have been returned from the changelog but have not yet been passed through the tree or reindexed. The user is repsonsible for removing the log file after the reindexer finishes. If the log file exists on the startup of parse_changelog_lustre, it will re output all logged paths assuming a failure occured and they were not reindexed. If the user wants a log file for their own purposes, they can copy the existing one before removing it or pipe the stdout to their own file.  
 
 ### tree_manager
 
