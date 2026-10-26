@@ -2,6 +2,7 @@
 .state
 output
 log
+.parse_changelog_lustre.log
 run
 /scoutwrap/src/scoutfs
 /scoutwrap/src/scoutwrap/libscoutwrap.a
