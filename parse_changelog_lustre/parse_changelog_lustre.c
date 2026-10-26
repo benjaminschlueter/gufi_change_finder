@@ -1,20 +1,10 @@
-/*
- * To build:
- *
- *	 export LUSTRE_LIBRARY_DIR=/home/$USER/git/lustre-release/lustre/utils/.libs
- *	 export LUSTRE_INCLUDE_DIR=/home/$USER/git/lustre-release/include
- *	 gcc -D_GNU_SOURCE -I$LUSTRE_INCLUDE_DIR -I$LUSTRE_INCLUDE_DIR/uapi/ -L$LUSTRE_LIBRARY_DIR -llustreapi changelog_reader.c
- *
- * To run:
- *
- *	 export LD_LIBRARY_PATH=$LUSTRE_LIBRARY_DIR
- *	 ./a.out
- *
- */
+// SPDX-License-Identifier: MIT
+// Copyright 2025. Triad National Security, LLC.
 
 #include <stdio.h>
 #include <getopt.h>
 #include <libgen.h>
+#include <limits.h>
 
 #include "lustre/lustreapi.h"
 
@@ -123,9 +113,8 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd)
 			continue;
 		}
 
-		int path_buf_size = 256;
-		char* path_buf = calloc(path_buf_size, sizeof(char));
-		char* parent_buf = calloc(path_buf_size, sizeof(char));
+		char* path_buf = calloc(PATH_MAX, sizeof(char));
+		char* parent_buf = calloc(PATH_MAX, sizeof(char));
 
 		if (path_buf == NULL) {
 			perror("calloc");
@@ -139,7 +128,7 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd)
 		// print all paths associated with fid
 		while (1) {
 			
-			if (llapi_fid2path_at(mnt_fd, &rec->cr_tfid, path_buf, path_buf_size, &recno, &linkno)) {
+			if (llapi_fid2path_at(mnt_fd, &rec->cr_tfid, path_buf, PATH_MAX, &recno, &linkno)) {
 				perror("llapi_fid2path_at");
 			}
 
@@ -199,7 +188,22 @@ int main(int argc, char *argv[])
 	}
 	
 	// get file descriptor for lustre mount point 
-	char* mnt_path = "/mnt/lustre";
+	char* suffix = strstr(args.mdt_name, "-MDT");
+	if (suffix == NULL) {
+		printf("%s is not a valid MDT name", args.mdt_name);
+		return -1;
+	}
+
+	// get mount path from mdt name 	
+	int fs_name_len = suffix - args.mdt_name; 
+	char* fs_name = calloc(fs_name_len + 1, sizeof(char));
+	memcpy(fs_name, args.mdt_name, fs_name_len);
+	
+	char* mnt_path = calloc(PATH_MAX, sizeof(char));
+	if (llapi_search_rootpath(mnt_path, fs_name)) {
+		perror("llapi_search_rootpath");
+	}
+
 	mnt_fd = open(mnt_path, O_RDONLY|O_DIRECTORY);
 	if (mnt_fd < 0) {
 		fprintf(stderr, "Error opening file %s: %s\n", mnt_path, strerror(errno));

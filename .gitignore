@@ -1,12 +1,10 @@
 /target
-/.state
-/output
-/log
-/run
-/run-reindexer
+.state
+output
+log
+run
 /scoutwrap/src/scoutfs
 /scoutwrap/src/scoutwrap/libscoutwrap.a
-/scripts
 /reindex_work
 /.cargo
 /vendor
