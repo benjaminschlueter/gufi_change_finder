@@ -15,6 +15,7 @@ fn main() {
     let FS_ROOT_PATH = args.root_fs;
     let USER_ROOT_PATH = args.user_translation_root;
     let ENABLE_TRANSLATION = !USER_ROOT_PATH.is_empty();
+    let DO_STAT = args.stat;
 
     eprintln!("Starting tree_manager");
 
@@ -46,7 +47,7 @@ fn main() {
 
     // Finished adding to tree
 
-    let parent_list = ChangeTree::parse_leaves(&tree);
+    let parent_list = ChangeTree::parse_leaves(&tree, DO_STAT);
 
     for mut item in parent_list {
         // generate fuse path here to keep filtering/translation in one place
@@ -83,4 +84,10 @@ struct Args {
     /// translation. If disabled, internal path and user path will be the same.
     #[arg(short, long, default_value = "")]
     user_translation_root: String,
+
+    /// Option to stat tree leaves to determine if they are files. When files are detected, the
+    /// parent will be output instead of them. This is an option to save overhead when input is
+    /// guaranteed to only contain directories.
+    #[arg(short, long)]
+    stat: bool,
 }

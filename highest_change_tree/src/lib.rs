@@ -121,7 +121,7 @@ impl ChangeTree {
     }
 
     /// This recursive function traverses the tree to the leaves and adds them to a vector for output.
-    pub fn parse_leaves(&self) -> Vec<OutputListData> {
+    pub fn parse_leaves(&self, stat: bool) -> Vec<OutputListData> {
         let mut parent_list = Vec::new();
 
         // check if tree is only root
@@ -135,6 +135,7 @@ impl ChangeTree {
                 self.root,
                 &mut parent_list,
                 self.arena[self.root].get().path.clone(),
+                stat,
             );
         }
 
@@ -146,19 +147,24 @@ impl ChangeTree {
         node: NodeId,
         parent_list: &mut Vec<OutputListData>,
         partial_path: String,
+        stat: bool,
     ) {
         // process all children before descending
         for child in node.children(&self.arena) {
             let mut partial_path_new = format!("{}/{}", partial_path, self.arena[child].get().path);
 
+            // no children: leaf
             if self.arena[child].first_child().is_none() {
-                let is_file = fs::metadata(&partial_path_new)
-                    .unwrap_or_else(|_| panic!("failed to stat {}", partial_path_new))
-                    .is_file();
+                let mut is_file = false;
+                if stat {
+                    is_file = fs::metadata(&partial_path_new)
+                        .unwrap_or_else(|_| panic!("failed to stat {}", partial_path_new))
+                        .is_file();
 
-                if is_file {
-                    // add parent instead
-                    partial_path_new = partial_path.clone();
+                    if is_file {
+                        // add parent instead
+                        partial_path_new = partial_path.clone();
+                    }
                 }
 
                 // generate FUSE path from tree reference path
@@ -170,7 +176,8 @@ impl ChangeTree {
                     fuse_path,
                 });
 
-                // if a file is found and the parent is added, no need to keep processing children
+                // if a file is found and the parent is added, don't keep processing children
+                // of that parent
                 if is_file {
                     return;
                 }
@@ -182,7 +189,7 @@ impl ChangeTree {
             let partial_path_new = format!("{}/{}", partial_path, self.arena[child].get().path);
 
             // node: extend path and keep recursing
-            Self::parse_leaves_inner(self, child, parent_list, partial_path_new);
+            Self::parse_leaves_inner(self, child, parent_list, partial_path_new, stat);
         }
     }
 }
@@ -203,7 +210,7 @@ mod tests {
 
         // test with only root in tree
         assert_eq!(
-            tree.parse_leaves(),
+            tree.parse_leaves(false),
             vec![OutputListData {
                 internal_path: format!("{}", fs_root),
                 fuse_path: String::new()
@@ -218,7 +225,7 @@ mod tests {
             },
         );
         assert_eq!(
-            tree.parse_leaves(),
+            tree.parse_leaves(false),
             vec![OutputListData {
                 internal_path: format!("{}", fs_root),
                 fuse_path: String::new()
@@ -234,7 +241,7 @@ mod tests {
         );
         create_test_path(&format!("{}/{}", &fs_root, path));
         assert_eq!(
-            tree.parse_leaves(),
+            tree.parse_leaves(false),
             vec![OutputListData {
                 internal_path: format!("{}/a", fs_root),
                 fuse_path: String::new()
@@ -251,7 +258,7 @@ mod tests {
         );
         create_test_path(&format!("{}/{}", &fs_root, path));
         assert_eq!(
-            tree.parse_leaves(),
+            tree.parse_leaves(false),
             vec![OutputListData {
                 internal_path: format!("{}/a", fs_root),
                 fuse_path: String::new()
@@ -268,7 +275,7 @@ mod tests {
         );
         create_test_path(&format!("{}/{}", &fs_root, path));
         assert_eq!(
-            tree.parse_leaves(),
+            tree.parse_leaves(false),
             vec![
                 OutputListData {
                     internal_path: format!("{}/a", fs_root),
@@ -291,7 +298,7 @@ mod tests {
         );
         create_test_path(&format!("{}/{}", &fs_root, path));
         assert_eq!(
-            tree.parse_leaves(),
+            tree.parse_leaves(false),
             vec![
                 OutputListData {
                     internal_path: format!("{}/a", fs_root),
@@ -318,7 +325,7 @@ mod tests {
         );
         create_test_path(&format!("{}/{}", &fs_root, path));
         assert_eq!(
-            tree.parse_leaves(),
+            tree.parse_leaves(false),
             vec![
                 OutputListData {
                     internal_path: format!("{}/a", fs_root),
@@ -345,7 +352,7 @@ mod tests {
         );
         create_test_path(&format!("{}/{}", &fs_root, path));
         assert_eq!(
-            tree.parse_leaves(),
+            tree.parse_leaves(false),
             vec![
                 OutputListData {
                     internal_path: format!("{}/a", fs_root),
@@ -366,7 +373,7 @@ mod tests {
             },
         );
         assert_eq!(
-            tree.parse_leaves(),
+            tree.parse_leaves(false),
             vec![OutputListData {
                 internal_path: format!("{}", fs_root),
                 fuse_path: String::new()
