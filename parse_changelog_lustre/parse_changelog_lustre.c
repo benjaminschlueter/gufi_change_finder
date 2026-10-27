@@ -130,6 +130,7 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 			if (rec->cr_pfid.f_seq == 0 && rec->cr_pfid.f_oid == 0 && rec->cr_pfid.f_ver == 0) {
 				if (llapi_fid2path_at(mnt_fd, &rec->cr_tfid, path_buf, PATH_MAX, NULL, &linkno)) {
 					perror("llapi_fid2path_at");
+					continue;
 				}
 					
 				// update path_buf to have parent path produced by dirname()
@@ -143,6 +144,7 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 			else {
 				if (llapi_fid2path_at(mnt_fd, &rec->cr_pfid, path_buf, PATH_MAX, NULL, &linkno)) {
 					perror("llapi_fid2path_at");
+					continue;
 				}
 			}
 
@@ -168,8 +170,6 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 			linktmp = linkno;
 
 		}
-
-		llapi_changelog_free(&rec);
 
 	}
 
