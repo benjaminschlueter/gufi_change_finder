@@ -94,7 +94,6 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 
 	while ((rc = llapi_changelog_recv(changelog_priv, &rec)) == 0) {
 		if (num_records++ >= args.max_records)
-			// llapi_changelog_free(&rec);
 			break;
 
 		index = rec->cr_index;
@@ -113,7 +112,6 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 			type != CL_SETATTR &&
 			type != CL_SETXATTR &&
 			type != CL_MTIME ) {
-			// llapi_changelog_free(&rec);
 			continue;
 		}
 
@@ -130,7 +128,7 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 			if (rec->cr_pfid.f_seq == 0 && rec->cr_pfid.f_oid == 0 && rec->cr_pfid.f_ver == 0) {
 				if (llapi_fid2path_at(mnt_fd, &rec->cr_tfid, path_buf, PATH_MAX, NULL, &linkno)) {
 					perror("llapi_fid2path_at");
-					continue;
+					goto check_linkno;
 				}
 					
 				// update path_buf to have parent path produced by dirname()
@@ -144,7 +142,7 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 			else {
 				if (llapi_fid2path_at(mnt_fd, &rec->cr_pfid, path_buf, PATH_MAX, NULL, &linkno)) {
 					perror("llapi_fid2path_at");
-					continue;
+					goto check_linkno;
 				}
 			}
 
@@ -156,18 +154,22 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 
 			// print parent
 			if (args.filename_set && dprintf(log_fd, "%s/%s\n", mnt_path, path_buf) < 0) {
+				// on a print error, return without clearing the changelog 
 				perror("dprintf");
-				// llapi_changelog_free(&rec);
 				return -1;
 			}
 
 			printf("%s/%s\n", mnt_path, path_buf);
 
+check_linkno:
+			
+			// if linkno wasn't updated, all paths handled
 			if (linkno == linktmp) {
 				break;
 			}
-			
-			linktmp = linkno;
+			else {
+				linktmp = linkno;
+			}
 
 		}
 
