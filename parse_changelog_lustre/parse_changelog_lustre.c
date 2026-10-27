@@ -7,6 +7,7 @@
 #include <libgen.h>
 #include <limits.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "lustre/lustreapi.h"
 
@@ -130,14 +131,27 @@ int process_records(void *changelog_priv, int mnt_fd, int log_fd, char* mnt_path
 					perror("llapi_fid2path_at");
 					goto check_linkno;
 				}
-					
-				// update path_buf to have parent path produced by dirname()
-				char path_buf_copy[PATH_MAX];
-				snprintf(path_buf_copy, sizeof(path_buf_copy), "%s", path_buf);
-				char *parent_path = dirname(path_buf_copy);
-				memset(path_buf, 0, PATH_MAX);
-				snprintf(path_buf, PATH_MAX, "%s", parent_path);
+				
+				// get absolute path to pass to stat
+				char abs_path[PATH_MAX];
+				snprintf(abs_path, PATH_MAX, "%s/%s", mnt_path, path_buf);
+				
+				// stat to check if this is a dir; if it isn't get the parent
+				struct stat st;
+				if (stat(abs_path, &st) == -1) {
+					printf("on %s\n", path_buf); 
+					perror("stat");
+					return -1;
+				}
 
+				if (!S_ISDIR(st.st_mode)) {	
+					// update path_buf to have parent path produced by dirname()
+					char path_buf_copy[PATH_MAX];
+					snprintf(path_buf_copy, sizeof(path_buf_copy), "%s", path_buf);
+					char *parent_path = dirname(path_buf_copy);
+					memset(path_buf, 0, PATH_MAX);
+					snprintf(path_buf, PATH_MAX, "%s", parent_path);
+				}
 			}
 			else {
 				if (llapi_fid2path_at(mnt_fd, &rec->cr_pfid, path_buf, PATH_MAX, NULL, &linkno)) {
